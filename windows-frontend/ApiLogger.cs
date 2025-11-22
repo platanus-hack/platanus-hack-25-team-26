@@ -36,8 +36,13 @@ namespace PhishingFinder_v2
                     string logFile = GetLogFilePath();
                     string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                     string logEntry = $"[{timestamp}] REQUEST - Endpoint: {endpoint}, File: {Path.GetFileName(filePath)}, Size: {fileSize} bytes{Environment.NewLine}";
-                    
+
+                    // Write to file
                     File.AppendAllText(logFile, logEntry);
+
+                    // Also write to console for real-time debugging
+                    Console.WriteLine($"[API] 📤 REQUEST -> {endpoint}");
+                    Console.WriteLine($"[API]    File: {Path.GetFileName(filePath)}, Size: {fileSize / 1024.0:F2} KB");
                 }
                 catch
                 {
@@ -56,20 +61,39 @@ namespace PhishingFinder_v2
                     string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                     string status = success ? "SUCCESS" : "FAILED";
                     string logEntry = $"[{timestamp}] RESPONSE - Endpoint: {endpoint}, Status: {status}";
-                    
+
                     if (success && !string.IsNullOrEmpty(responseBody))
                     {
                         logEntry += $", Response: {responseBody}";
                     }
-                    
+
                     if (!success && !string.IsNullOrEmpty(errorMessage))
                     {
                         logEntry += $", Error: {errorMessage}";
                     }
-                    
+
                     logEntry += Environment.NewLine;
-                    
+
+                    // Write to file
                     File.AppendAllText(logFile, logEntry);
+
+                    // Also write to console for real-time debugging
+                    if (success)
+                    {
+                        Console.WriteLine($"[API] 📥 RESPONSE ✓ SUCCESS");
+                        if (!string.IsNullOrEmpty(responseBody))
+                        {
+                            Console.WriteLine($"[API]    Response: {responseBody}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[API] 📥 RESPONSE ✗ FAILED");
+                        if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            Console.WriteLine($"[API]    Error: {errorMessage}");
+                        }
+                    }
                 }
                 catch
                 {
@@ -87,8 +111,13 @@ namespace PhishingFinder_v2
                     string logFile = GetLogFilePath();
                     string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                     string logEntry = $"[{timestamp}] EXCEPTION - Endpoint: {endpoint}, Error: {ex.Message}, StackTrace: {ex.StackTrace}{Environment.NewLine}";
-                    
+
+                    // Write to file
                     File.AppendAllText(logFile, logEntry);
+
+                    // Also write to console for real-time debugging
+                    Console.WriteLine($"[API] ⚠️ EXCEPTION: {ex.Message}");
+                    Console.WriteLine($"[API]    Endpoint: {endpoint}");
                 }
                 catch
                 {

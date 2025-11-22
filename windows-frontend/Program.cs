@@ -20,12 +20,30 @@ namespace PhishingFinder_v2
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            
+
+            // Check if user configuration exists
+            if (!UserConfig.ConfigExists())
+            {
+                // Show setup form for first-time configuration
+                using (var setupForm = new SetupForm())
+                {
+                    var result = setupForm.ShowDialog();
+
+                    // If user cancels setup, exit application
+                    if (result != DialogResult.OK)
+                    {
+                        MessageBox.Show("La configuración es requerida para usar Phishing Finder.",
+                            "Configuración Cancelada", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+            }
+
             mainForm = new MainForm();
-            
+
             // Handle form closing to ensure clean exit
             mainForm.FormClosing += MainForm_FormClosing;
-            
+
             Application.Run(mainForm);
         }
 

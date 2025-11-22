@@ -10,6 +10,7 @@ namespace PhishingFinder_v2
         private Label titleLabel = null!;
         private Label contentLabel = null!;
         private Button closeButton = null!;
+        private Button infoButton = null!;
         private const int CornerRadius = 12;
         private const int CloseButtonSize = 24;
         private const int CloseButtonPadding = 8;
@@ -113,6 +114,26 @@ namespace PhishingFinder_v2
             closeButton.MouseEnter += CloseButton_MouseEnter;
             closeButton.MouseLeave += CloseButton_MouseLeave;
             
+            // Info button - circular button with ! icon
+            infoButton = new Button
+            {
+                Text = "!",
+                Font = new Font("Segoe UI", 16F, FontStyle.Bold, GraphicsUnit.Pixel),
+                ForeColor = Color.FromArgb(255, 255, 255),
+                BackColor = Color.FromArgb(60, 60, 65),
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(CloseButtonSize, CloseButtonSize),
+                Location = new Point(this.Width - (2 * CloseButtonSize) - (2 * CloseButtonPadding), CloseButtonPadding),
+                Cursor = Cursors.Hand,
+                TabStop = false,
+                UseVisualStyleBackColor = false
+            };
+            infoButton.FlatAppearance.BorderSize = 0;
+            infoButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(100, 100, 120);
+            infoButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(120, 120, 140);
+            infoButton.Click += InfoButton_Click;
+            infoButton.Paint += InfoButton_Paint;
+            
             this.Controls.Add(titleLabel);
             this.Controls.Add(contentLabel);
             
@@ -122,6 +143,8 @@ namespace PhishingFinder_v2
             fadeTimer.Tick += FadeTimer_Tick;
             this.Controls.Add(closeButton);
             closeButton.BringToFront();
+            this.Controls.Add(infoButton);
+            infoButton.BringToFront();
             
             this.ResumeLayout(false);
         }
@@ -140,6 +163,25 @@ namespace PhishingFinder_v2
         private void CloseButton_MouseLeave(object? sender, EventArgs e)
         {
             closeButton.ForeColor = Color.FromArgb(200, 200, 205);
+        }
+
+        private void InfoButton_Click(object? sender, EventArgs e)
+        {
+            MessageBox.Show("Aquí puedes mostrar más información relevante sobre el phishing detectado, detalles técnicos, recomendaciones, etc.", "Más información", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void InfoButton_Paint(object? sender, PaintEventArgs e)
+        {
+            var btn = sender as Button;
+            if (btn == null) return;
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var brush = new SolidBrush(Color.FromArgb(80, 0, 0, 0)))
+            {
+                g.FillEllipse(brush, 0, 0, btn.Width, btn.Height);
+            }
+            // Draw the ! text
+            TextRenderer.DrawText(g, btn.Text, btn.Font, new Rectangle(0, 0, btn.Width, btn.Height), btn.ForeColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
         }
 
         // Import Windows API for rounded corners
@@ -307,6 +349,11 @@ namespace PhishingFinder_v2
             if (closeButton != null && !closeButton.IsDisposed)
             {
                 closeButton.Location = new Point(this.Width - CloseButtonSize - CloseButtonPadding, CloseButtonPadding);
+            }
+            // Update info button position when form resizes
+            if (infoButton != null && !infoButton.IsDisposed)
+            {
+                infoButton.Location = new Point(this.Width - (2 * CloseButtonSize) - (2 * CloseButtonPadding), CloseButtonPadding);
             }
         }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using System.Threading.Tasks;
 
 namespace PhishingFinder_v2
 {
@@ -13,13 +14,45 @@ namespace PhishingFinder_v2
         private bool isProcessingScreenshot = false;
         private NotifyIcon? notifyIcon;
         private ContextMenuStrip? contextMenu;
+        private UserConfig? userConfig;
 
         public MainForm()
         {
+            Console.WriteLine("[MainForm] Constructor iniciado");
             InitializeComponent();
+            Console.WriteLine("[MainForm] InitializeComponent completado");
+            LoadUserConfiguration();
+            Console.WriteLine("[MainForm] LoadUserConfiguration completado");
             InitializeSystemTray();
+            Console.WriteLine("[MainForm] InitializeSystemTray completado");
             InitializeDialog();
+            Console.WriteLine("[MainForm] InitializeDialog completado");
             InitializeScreenshotTimer();
+            Console.WriteLine("[MainForm] InitializeScreenshotTimer completado");
+            Console.WriteLine("[MainForm] Constructor finalizado - Aplicación lista");
+        }
+
+        private void LoadUserConfiguration()
+        {
+            Console.WriteLine("[Config] Intentando cargar configuración...");
+            userConfig = UserConfig.Load();
+
+            if (userConfig == null)
+            {
+                Console.WriteLine("[Config] ERROR: No se pudo cargar la configuración (null)");
+                // Don't exit immediately - let the setup form handle this
+                userConfig = new UserConfig(); // Create empty config
+                Console.WriteLine("[Config] Configuración vacía creada temporalmente");
+            }
+            else if (!userConfig.IsValid())
+            {
+                Console.WriteLine($"[Config] ERROR: Configuración inválida - Email: {userConfig.Email}, Phone: {userConfig.PhoneNumber}");
+                // Don't exit immediately - let the setup form handle this
+            }
+            else
+            {
+                Console.WriteLine($"[Config] Configuración cargada exitosamente - Email: {userConfig.Email}");
+            }
         }
 
         private void InitializeComponent()
@@ -41,20 +74,23 @@ namespace PhishingFinder_v2
 
         private void InitializeDialog()
         {
+            Console.WriteLine("[Dialog] Inicializando diálogo...");
             dialogForm = new DialogForm();
             dialogForm.Hide(); // Always keep hidden - only show on threats
             dialogForm.DialogClosed += DialogForm_DialogClosed; // Handle dialog close event
-            
+
             // Set up timer to check if we're over allowed apps
             mouseTimer = new Timer();
             mouseTimer.Interval = 1000; // Check every second
             mouseTimer.Tick += MouseTimer_Tick;
             mouseTimer.Start();
-            
+            Console.WriteLine("[Dialog] MouseTimer iniciado (intervalo: 1000ms)");
+
             // Set up timer to follow cursor when dialog is visible
             cursorFollowTimer = new Timer();
             cursorFollowTimer.Interval = 50; // Update every 50ms for smooth following
             cursorFollowTimer.Tick += CursorFollowTimer_Tick;
+            Console.WriteLine("[Dialog] CursorFollowTimer configurado");
         }
 
         private void InitializeSystemTray()
@@ -81,54 +117,105 @@ namespace PhishingFinder_v2
 
         private void InitializeScreenshotTimer()
         {
+            Console.WriteLine("[Screenshot] Configurando ScreenshotTimer...");
             screenshotTimer = new Timer();
             screenshotTimer.Interval = 5000; // 5 seconds
             screenshotTimer.Tick += ScreenshotTimer_Tick;
-            // Timer will be started/stopped based on whether we're over an allowed app
+            Console.WriteLine("[Screenshot] ScreenshotTimer configurado (intervalo: 5000ms)");
+            Console.WriteLine("[Screenshot] Timer se iniciará cuando el mouse esté sobre un navegador");
         }
 
         private async void ScreenshotTimer_Tick(object? sender, EventArgs e)
         {
+            Console.WriteLine($"[Screenshot] ► Timer Tick - Hora: {DateTime.Now:HH:mm:ss}");
+
             // Prevent concurrent screenshot processing
             if (isProcessingScreenshot)
+            {
+                Console.WriteLine("[Screenshot] ⚠ Ya hay un screenshot en proceso, saltando...");
                 return;
+            }
 
             // Get the browser window handle
             IntPtr browserHandle = WindowDetector.GetBrowserWindowHandle();
-            
+            Console.WriteLine($"[Screenshot] Browser Handle: {browserHandle}");
+
             if (browserHandle != IntPtr.Zero)
             {
                 isProcessingScreenshot = true;
-                
+                Console.WriteLine("[Screenshot] Iniciando captura de screenshot...");
+
                 try
                 {
                     // Generate filename and capture screenshot
                     string filePath = ScreenshotCapture.GenerateScreenshotFileName();
+                    Console.WriteLine($"[Screenshot] Archivo destino: {filePath}");
+
                     bool captured = ScreenshotCapture.CaptureWindow(browserHandle, filePath);
-                    
+                    Console.WriteLine($"[Screenshot] Captura exitosa: {captured}");
+
                     if (captured)
                     {
+                        Console.WriteLine("[Screenshot] Enviando screenshot a la API...");
                         // Send screenshot to API (silently, no dialog update)
                         PhishingResponse? response = await PhishingApiClient.EvaluateScreenshotAsync(filePath);
-                        
+
+                        if (response == null)
+                        {
+                            Console.WriteLine("[Screenshot] ✗ API retornó null");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[Screenshot] ✓ API Response - Scoring: {response.Scoring}, Type: {response.Type}");
+                            Console.WriteLine($"[Screenshot] Reason: {response.Reason}");
+                        }
+
                         // Only show dialog if threat level is Warning (4-6) or Alert (7-10)
                         if (response != null && response.Scoring >= 4)
                         {
+                            Console.WriteLine($"[Screenshot] ⚠ ALERTA DETECTADA - Nivel: {response.Scoring}");
+
                             // Stop screenshot timer while dialog is showing
                             screenshotTimer?.Stop();
-                            
+
                             // Update dialog with threat information
                             dialogForm?.UpdatePhishingResult(response);
-                            
+
                             // Show dialog and position it near mouse cursor
                             ShowThreatDialog();
+
+                            // If scoring is 7 or higher (DANGER level), send email and WhatsApp alerts immediately
+                            if (response.Scoring >= 7 && userConfig != null && !string.IsNullOrWhiteSpace(userConfig.RefreshToken))
+                            {
+                                Console.WriteLine("[Screenshot] 🚨 PELIGRO - Enviando alertas por email y WhatsApp...");
+                                _ = SendEmailAlertAsync(userConfig.RefreshToken, response.Scoring, response.Reason, response.Type);
+                                _ = SendWhatsAppAlertAsync(userConfig.PhoneNumber, response.Reason);
+                            }
+                        }
+                        else if (response != null)
+                        {
+                            Console.WriteLine($"[Screenshot] ✓ Seguro - Scoring: {response.Scoring} (< 4)");
                         }
                     }
+                    else
+                    {
+                        Console.WriteLine("[Screenshot] ✗ No se pudo capturar el screenshot");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Screenshot] ✗ ERROR: {ex.Message}");
+                    Console.WriteLine($"[Screenshot] Stack: {ex.StackTrace}");
                 }
                 finally
                 {
                     isProcessingScreenshot = false;
+                    Console.WriteLine("[Screenshot] ◄ Procesamiento finalizado");
                 }
+            }
+            else
+            {
+                Console.WriteLine("[Screenshot] ✗ No se encontró ventana de navegador");
             }
         }
 
@@ -136,20 +223,26 @@ namespace PhishingFinder_v2
         {
             // Check if mouse is over an allowed app (browser)
             bool isOverBrowser = WindowDetector.IsMouseOverBrowser();
-            
+
             // Start/stop screenshot timer based on whether we're over an allowed app
             if (isOverBrowser)
             {
                 // Start screenshot timer if not already running
                 if (screenshotTimer != null && !screenshotTimer.Enabled)
                 {
+                    Console.WriteLine("[Mouse] ✓ Mouse sobre navegador - Iniciando ScreenshotTimer");
+                    Console.WriteLine($"[Mouse] Timer configurado para ejecutarse cada {screenshotTimer.Interval}ms (cada {screenshotTimer.Interval / 1000.0}s)");
                     screenshotTimer.Start();
                 }
             }
             else
             {
                 // Stop screenshot timer when not over allowed app
-                screenshotTimer?.Stop();
+                if (screenshotTimer != null && screenshotTimer.Enabled)
+                {
+                    Console.WriteLine("[Mouse] ✗ Mouse NO sobre navegador - Deteniendo ScreenshotTimer");
+                    screenshotTimer.Stop();
+                }
             }
         }
         
@@ -245,6 +338,50 @@ namespace PhishingFinder_v2
             dialogForm.Location = new Point(dialogX, dialogY);
         }
 
+        private async Task SendEmailAlertAsync(string refreshToken, double scoring, string reason, string type)
+        {
+            Console.WriteLine("[Email] Iniciando envío de alerta por email...");
+            try
+            {
+                bool success = await PhishingApiClient.SendPhishingAlertAsync(refreshToken, scoring, reason, type);
+
+                if (success)
+                {
+                    Console.WriteLine("[Email] ✓ Alerta enviada exitosamente");
+                }
+                else
+                {
+                    Console.WriteLine("[Email] ✗ Fallo al enviar alerta");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Email] ✗ ERROR: {ex.Message}");
+            }
+        }
+
+        private async Task SendWhatsAppAlertAsync(string phoneNumber, string reason)
+        {
+            Console.WriteLine("[WhatsApp] Iniciando envío de notificación por WhatsApp...");
+            try
+            {
+                bool success = await PhishingApiClient.SendWhatsAppNotificationAsync(phoneNumber, reason);
+
+                if (success)
+                {
+                    Console.WriteLine("[WhatsApp] ✓ Notificación enviada exitosamente");
+                }
+                else
+                {
+                    Console.WriteLine("[WhatsApp] ✗ Fallo al enviar notificación");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WhatsApp] ✗ ERROR: {ex.Message}");
+            }
+        }
+
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             mouseTimer?.Stop();
@@ -254,11 +391,11 @@ namespace PhishingFinder_v2
             cursorFollowTimer?.Stop();
             cursorFollowTimer?.Dispose();
             dialogForm?.Close();
-            
+
             // Clean up system tray icon
             notifyIcon?.Dispose();
             contextMenu?.Dispose();
-            
+
             base.OnFormClosed(e);
         }
     }
