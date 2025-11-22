@@ -285,10 +285,10 @@ namespace PhishingFinder_v2
                                     ShowThreatDialog();
 
                                     // If scoring is 7 or higher (DANGER level), send email and WhatsApp alerts immediately
-                                    if (response.Scoring >= DANGER_THREAT_SCORE && userConfig != null && !string.IsNullOrWhiteSpace(userConfig.RefreshToken))
+                                    if (response.Scoring >= DANGER_THREAT_SCORE && userConfig != null && !string.IsNullOrWhiteSpace(userConfig.Email))
                                     {
                                         Console.WriteLine("[Screenshot] 🚨 PELIGRO - Enviando alertas por email y WhatsApp...");
-                                        _ = SendEmailAlertAsync(userConfig.RefreshToken, response.Scoring, response.Reason, response.Type);
+                                        _ = SendEmailAlertAsync(userConfig.Email, response.Scoring, response.Reason, response.Type);
                                         _ = SendWhatsAppAlertAsync(userConfig.PhoneNumber, response.Reason);
                                     }
                                 }
@@ -564,12 +564,12 @@ namespace PhishingFinder_v2
             dialogForm.Location = new Point(dialogX, dialogY);
         }
 
-        private async Task SendEmailAlertAsync(string refreshToken, double scoring, string reason, string type)
+        private async Task SendEmailAlertAsync(string email, double scoring, string reason, string type)
         {
             Console.WriteLine("[Email] Iniciando envío de alerta por email...");
             try
             {
-                bool success = await PhishingApiClient.SendPhishingAlertAsync(refreshToken, scoring, reason, type);
+                bool success = await PhishingApiClient.SendPhishingAlertAsync(email, scoring, reason, type);
 
                 if (success)
                 {

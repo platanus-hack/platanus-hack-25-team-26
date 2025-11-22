@@ -221,16 +221,16 @@ namespace PhishingFinder_v2
         /// <summary>
         /// Sends a social engineering alert via email
         /// </summary>
-        /// <param name="refreshToken">Gmail OAuth2 refresh token</param>
+        /// <param name="email">Email to send the alert to</param>
         /// <param name="scoring">Risk scoring value</param>
         /// <param name="reason">Reason for the alert</param>
         /// <param name="type">Type of social engineering attack</param>
         /// <returns>True if alert was sent successfully, false otherwise</returns>
-        public static async Task<bool> SendPhishingAlertAsync(string refreshToken, double scoring, string reason, string type)
+        public static async Task<bool> SendPhishingAlertAsync(string email, double scoring, string reason, string type)
         {
-            if (string.IsNullOrWhiteSpace(refreshToken))
+            if (string.IsNullOrWhiteSpace(email))
             {
-                ApiLogger.LogResponse(AlertEndpoint, false, null, "Refresh token is empty");
+                ApiLogger.LogResponse(AlertEndpoint, false, null, "Email is empty");
                 return false;
             }
 
@@ -242,7 +242,7 @@ namespace PhishingFinder_v2
                     scoring = scoring,
                     reason = reason,
                     type = type,
-                    refresh_token = refreshToken
+                    email = email
                 };
 
                 string jsonPayload = JsonSerializer.Serialize(payload);
