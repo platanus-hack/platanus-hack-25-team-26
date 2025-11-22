@@ -285,7 +285,7 @@ private static async Task<T?> RetryAsync<T>(
   "DangerThreatScore": 7,
   "ApiEndpoints": {
     "Evaluate": "https://pjemsvms4u.us-east-2.awsapprunner.com/evaluate",
-    "Alert": "http://localhost:8000/send-alert-email",
+    "Alert": "https://pjemsvms4u.us-east-2.awsapprunner.com/send-alert-email",
     "WhatsApp": "https://api-notmeta.damascuss.io/notmeta/kora/notify/"
   },
   "ImageCompression": {
