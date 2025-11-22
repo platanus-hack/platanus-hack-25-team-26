@@ -12,8 +12,15 @@ namespace PhishingFinder_v2
         private const int CornerRadius = 12;
         private Font titleFont = null!;
         private Font contentFont = null!;
-        private Color alertColor = Color.FromArgb(120, 120, 135); // Default border color
-        private Color alertGlowColor = Color.FromArgb(70, 70, 80); // Default glow color
+        private Color alertColor = Color.FromArgb(180, 180, 195); // Default border color - más brillante
+        private Color alertGlowColor = Color.FromArgb(100, 100, 115); // Default glow color - más brillante
+        
+        // Animation properties
+        private Timer? fadeTimer;
+        private bool isFadingIn = false;
+        private bool isFadingOut = false;
+        private const double fadeStep = 0.05;
+        private const double targetOpacity = 0.97;
 
         public DialogForm()
         {
@@ -27,62 +34,67 @@ namespace PhishingFinder_v2
             // Create modern fonts with better rendering
             try
             {
-                // Try Segoe UI Variable (Windows 11) or fallback to Segoe UI
-                var fontFamily = new FontFamily("Segoe UI Variable");
-                titleFont = new Font(fontFamily, 10.5F, FontStyle.Bold, GraphicsUnit.Pixel);
-                contentFont = new Font(fontFamily, 9F, FontStyle.Regular, GraphicsUnit.Pixel);
+                // Try Roboto or fallback to Segoe UI
+                var fontFamily = new FontFamily("Roboto");
+                titleFont = new Font(fontFamily, 14F, FontStyle.Bold, GraphicsUnit.Pixel);
+                contentFont = new Font(fontFamily, 12F, FontStyle.Regular, GraphicsUnit.Pixel);
             }
             catch
             {
-                // Fallback to Segoe UI if Variable is not available
+                // Fallback to Segoe UI if Roboto is not available
                 var fontFamily = new FontFamily("Segoe UI");
-                titleFont = new Font(fontFamily, 10.5F, FontStyle.Bold, GraphicsUnit.Pixel);
-                contentFont = new Font(fontFamily, 9F, FontStyle.Regular, GraphicsUnit.Pixel);
+                titleFont = new Font(fontFamily, 14F, FontStyle.Bold, GraphicsUnit.Pixel);
+                contentFont = new Font(fontFamily, 12F, FontStyle.Regular, GraphicsUnit.Pixel);
             }
             
-            // Form properties - more compact size, but allow for longer text
+            // Form properties - larger size for better visibility
             this.FormBorderStyle = FormBorderStyle.None;
-            this.BackColor = Color.FromArgb(40, 40, 45);
-            this.Size = new Size(320, 120);
+            this.BackColor = Color.FromArgb(30, 30, 35);
+            this.Size = new Size(420, 160);
             this.StartPosition = FormStartPosition.Manual;
             this.TopMost = true;
             this.ShowInTaskbar = false;
-            this.Opacity = 0.97;
+            this.Opacity = 0; // Start invisible for fade in animation
             this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.DoubleBuffer | ControlStyles.ResizeRedraw, true);
-            this.Padding = new Padding(16, 14, 16, 14);
+            this.Padding = new Padding(12, 8, 12, 8);
             
             // Add rounded corners effect
             this.Region = System.Drawing.Region.FromHrgn(
                 CreateRoundRectRgn(0, 0, this.Width, this.Height, CornerRadius, CornerRadius)
             );
             
-            // Title label - compact and modern
+            // Title label - larger and more visible
             titleLabel = new Label
             {
                 Text = "🌐 Browser Detected",
                 ForeColor = Color.FromArgb(255, 255, 255),
                 Font = titleFont,
                 AutoSize = true,
-                Location = new Point(16, 14),
+                Location = new Point(12, 8),
                 BackColor = Color.Transparent,
                 UseCompatibleTextRendering = false
             };
             
-            // Content label - compact text, allow wrapping
+            // Content label - larger text with more space
             contentLabel = new Label
             {
                 Text = "Monitoring active",
-                ForeColor = Color.FromArgb(200, 200, 205),
+                ForeColor = Color.FromArgb(204, 255, 255, 255), // Blanco con 80% opacidad
                 Font = contentFont,
                 AutoSize = false,
-                Location = new Point(16, 36),
-                Size = new Size(288, 60),
+                Location = new Point(12, 34),
+                Size = new Size(396, 90),
                 BackColor = Color.Transparent,
                 UseCompatibleTextRendering = false
             };
             
             this.Controls.Add(titleLabel);
             this.Controls.Add(contentLabel);
+            
+            // Initialize fade timer
+            fadeTimer = new Timer();
+            fadeTimer.Interval = 15; // ~60fps
+            fadeTimer.Tick += FadeTimer_Tick;
             
             this.ResumeLayout(false);
         }
@@ -99,6 +111,55 @@ namespace PhishingFinder_v2
             int nHeightEllipse
         );
 
+        public void FadeIn()
+        {
+            if (fadeTimer == null) return;
+            
+            isFadingIn = true;
+            isFadingOut = false;
+            fadeTimer.Start();
+        }
+
+        public void FadeOut()
+        {
+            if (fadeTimer == null) return;
+            
+            isFadingIn = false;
+            isFadingOut = true;
+            fadeTimer.Start();
+        }
+
+        private void FadeTimer_Tick(object? sender, EventArgs e)
+        {
+            if (isFadingIn)
+            {
+                if (this.Opacity < targetOpacity)
+                {
+                    this.Opacity += fadeStep;
+                    if (this.Opacity >= targetOpacity)
+                    {
+                        this.Opacity = targetOpacity;
+                        fadeTimer?.Stop();
+                        isFadingIn = false;
+                    }
+                }
+            }
+            else if (isFadingOut)
+            {
+                if (this.Opacity > 0)
+                {
+                    this.Opacity -= fadeStep;
+                    if (this.Opacity <= 0)
+                    {
+                        this.Opacity = 0;
+                        fadeTimer?.Stop();
+                        isFadingOut = false;
+                        this.Hide();
+                    }
+                }
+            }
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
@@ -108,11 +169,11 @@ namespace PhishingFinder_v2
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             
-            // Draw modern gradient background - brighter and more visible
+            // Draw modern gradient background - darker with better contrast
             using (var brush = new LinearGradientBrush(
                 new Rectangle(0, 0, this.Width, this.Height),
-                Color.FromArgb(48, 48, 54),
-                Color.FromArgb(38, 38, 44),
+                Color.FromArgb(45, 45, 52),
+                Color.FromArgb(32, 32, 38),
                 LinearGradientMode.Vertical))
             {
                 var path = GetRoundedRectanglePath(new Rectangle(0, 0, this.Width, this.Height), CornerRadius);
@@ -135,14 +196,14 @@ namespace PhishingFinder_v2
                 new Rectangle(0, 0, this.Width, this.Height),
                 alertColor,
                 Color.FromArgb(Math.Max(0, alertColor.R - 40), Math.Max(0, alertColor.G - 40), Math.Max(0, alertColor.B - 40)),
-                LinearGradientMode.Vertical), 1.2f))
+                LinearGradientMode.Vertical), 2f))
             {
                 var borderPath = GetRoundedRectanglePath(new Rectangle(0, 0, this.Width - 1, this.Height - 1), CornerRadius);
                 g.DrawPath(pen, borderPath);
             }
             
             // Draw subtle inner highlight
-            using (var pen = new Pen(Color.FromArgb(70, 70, 80), 1))
+            using (var pen = new Pen(Color.FromArgb(90, 90, 100), 1))
             {
                 var innerPath = GetRoundedRectanglePath(new Rectangle(1, 1, this.Width - 3, this.Height - 3), CornerRadius - 1);
                 g.DrawPath(pen, innerPath);
@@ -197,7 +258,7 @@ namespace PhishingFinder_v2
             // Update content label size when form resizes
             if (contentLabel != null && !contentLabel.IsDisposed)
             {
-                contentLabel.Width = this.Width - 32; // Account for padding
+                contentLabel.Width = this.Width - 24; // Account for padding
             }
         }
 
@@ -222,30 +283,26 @@ namespace PhishingFinder_v2
             // 7-10: Danger (Red)
             
             string levelText;
-            Color textColor;
             Color borderColor;
             Color glowColor;
 
             if (response.Scoring <= 3)
             {
                 levelText = "SEGURO";
-                textColor = Color.FromArgb(100, 200, 100);
-                borderColor = Color.FromArgb(80, 180, 80);
-                glowColor = Color.FromArgb(60, 160, 60);
+                borderColor = Color.FromArgb(100, 220, 100);
+                glowColor = Color.FromArgb(80, 200, 80);
             }
             else if (response.Scoring <= 6)
             {
                 levelText = "ADVERTENCIA";
-                textColor = Color.FromArgb(255, 200, 100);
-                borderColor = Color.FromArgb(255, 180, 60);
-                glowColor = Color.FromArgb(255, 160, 40);
+                borderColor = Color.FromArgb(255, 200, 90);
+                glowColor = Color.FromArgb(255, 180, 70);
             }
             else
             {
                 levelText = "PELIGRO";
-                textColor = Color.FromArgb(255, 100, 100);
-                borderColor = Color.FromArgb(255, 80, 80);
-                glowColor = Color.FromArgb(255, 60, 60);
+                borderColor = Color.FromArgb(255, 100, 100);
+                glowColor = Color.FromArgb(255, 80, 80);
             }
 
             // Update colors
@@ -270,18 +327,29 @@ namespace PhishingFinder_v2
             }
 
             contentLabel.Text = displayText;
-            contentLabel.ForeColor = textColor;
+            contentLabel.ForeColor = Color.FromArgb(204, 255, 255, 255); // Blanco con 80% opacidad
 
             // Adjust form size based on content
             using (Graphics g = this.CreateGraphics())
             {
                 SizeF textSize = g.MeasureString(displayText, contentFont, contentLabel.Width);
-                int newHeight = (int)textSize.Height + 60; // Add padding
-                this.Size = new Size(this.Width, Math.Max(120, Math.Min(300, newHeight)));
-                contentLabel.Height = (int)textSize.Height + 10;
+                int newHeight = (int)textSize.Height + 80; // Add padding
+                this.Size = new Size(this.Width, Math.Max(160, Math.Min(380, newHeight)));
+                contentLabel.Height = (int)textSize.Height + 12;
             }
 
             this.Invalidate();
+        }
+
+        public new void Show()
+        {
+            base.Show();
+            FadeIn();
+        }
+
+        public void HideWithFade()
+        {
+            FadeOut();
         }
 
         protected override void Dispose(bool disposing)
@@ -290,6 +358,7 @@ namespace PhishingFinder_v2
             {
                 titleFont?.Dispose();
                 contentFont?.Dispose();
+                fadeTimer?.Dispose();
             }
             base.Dispose(disposing);
         }
