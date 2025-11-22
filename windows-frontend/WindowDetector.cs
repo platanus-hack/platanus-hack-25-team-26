@@ -20,7 +20,8 @@ namespace PhishingFinder_v2
             "vivaldi",          // Vivaldi
             "safari",           // Safari (if on Windows)
             "browser",          // Edge Legacy
-            "iexplore"          // Internet Explorer
+            "iexplore",         // Internet Explorer
+            "commet"            // Comet Browser
         };
 
         [DllImport("user32.dll")]
