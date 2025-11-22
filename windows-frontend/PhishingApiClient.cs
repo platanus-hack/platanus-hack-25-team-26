@@ -242,7 +242,7 @@ namespace PhishingFinder_v2
                     scoring = scoring,
                     reason = reason,
                     type = type,
-                    email = email
+                    recipient_email = email
                 };
 
                 string jsonPayload = JsonSerializer.Serialize(payload);

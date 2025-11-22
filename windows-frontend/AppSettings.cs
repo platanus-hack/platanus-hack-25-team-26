@@ -120,7 +120,7 @@ namespace PhishingFinder_v2
     {
         public string Evaluate { get; set; } = "https://pjemsvms4u.us-east-2.awsapprunner.com/evaluate";
         public string Alert { get; set; } = "https://pjemsvms4u.us-east-2.awsapprunner.com/send-alert-email";
-        public string WhatsApp { get; set; } = "https://api-notmeta.damascuss.io/notmeta/kora/notify/";
+        public string WhatsApp { get; set; } = "https://pjemsvms4u.us-east-2.awsapprunner.com/send-whatsapp-notification";
     }
 
     public class TimeoutSettings
