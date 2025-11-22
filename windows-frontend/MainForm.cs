@@ -11,10 +11,13 @@ namespace PhishingFinder_v2
         private Timer? screenshotTimer;
         private Timer? cursorFollowTimer;
         private bool isProcessingScreenshot = false;
+        private NotifyIcon? notifyIcon;
+        private ContextMenuStrip? contextMenu;
 
         public MainForm()
         {
             InitializeComponent();
+            InitializeSystemTray();
             InitializeDialog();
             InitializeScreenshotTimer();
         }
@@ -52,6 +55,28 @@ namespace PhishingFinder_v2
             cursorFollowTimer = new Timer();
             cursorFollowTimer.Interval = 50; // Update every 50ms for smooth following
             cursorFollowTimer.Tick += CursorFollowTimer_Tick;
+        }
+
+        private void InitializeSystemTray()
+        {
+            // Create context menu
+            contextMenu = new ContextMenuStrip();
+            ToolStripMenuItem closeMenuItem = new ToolStripMenuItem("Close");
+            closeMenuItem.Click += CloseMenuItem_Click;
+            contextMenu.Items.Add(closeMenuItem);
+
+            // Create notify icon
+            notifyIcon = new NotifyIcon();
+            notifyIcon.Icon = SystemIcons.Application; // Use default application icon
+            notifyIcon.Text = "Phishing Finder";
+            notifyIcon.ContextMenuStrip = contextMenu;
+            notifyIcon.Visible = true;
+        }
+
+        private void CloseMenuItem_Click(object? sender, EventArgs e)
+        {
+            // Close the application
+            Application.Exit();
         }
 
         private void InitializeScreenshotTimer()
@@ -229,6 +254,11 @@ namespace PhishingFinder_v2
             cursorFollowTimer?.Stop();
             cursorFollowTimer?.Dispose();
             dialogForm?.Close();
+            
+            // Clean up system tray icon
+            notifyIcon?.Dispose();
+            contextMenu?.Dispose();
+            
             base.OnFormClosed(e);
         }
     }
