@@ -12,8 +12,6 @@ namespace PhishingFinder_v2
         private TextBox emailTextBox = null!;
         private Label phoneLabel = null!;
         private TextBox phoneTextBox = null!;
-        private Label refreshTokenLabel = null!;
-        private TextBox refreshTokenTextBox = null!;
         private Button saveButton = null!;
         private Label infoLabel = null!;
 
@@ -96,24 +94,6 @@ namespace PhishingFinder_v2
                 PlaceholderText = "+56912345678"
             };
 
-            // Refresh Token label
-            refreshTokenLabel = new Label
-            {
-                Text = "Refresh Token de Gmail (OAuth2):",
-                Location = new Point(30, 270),
-                Size = new Size(440, 20),
-                ForeColor = Color.FromArgb(60, 60, 70)
-            };
-
-            // Refresh Token textbox
-            refreshTokenTextBox = new TextBox
-            {
-                Location = new Point(30, 295),
-                Size = new Size(440, 30),
-                Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point),
-                PlaceholderText = "Token de refresco de Gmail"
-            };
-
             // Save button
             saveButton = new Button
             {
@@ -136,8 +116,6 @@ namespace PhishingFinder_v2
             this.Controls.Add(emailTextBox);
             this.Controls.Add(phoneLabel);
             this.Controls.Add(phoneTextBox);
-            this.Controls.Add(refreshTokenLabel);
-            this.Controls.Add(refreshTokenTextBox);
             this.Controls.Add(saveButton);
 
             this.ResumeLayout(false);
@@ -165,9 +143,6 @@ namespace PhishingFinder_v2
                 return;
             }
 
-            // Refresh token is optional for now
-            string refreshToken = refreshTokenTextBox.Text.Trim();
-
             try
             {
                 // Create and save configuration
@@ -175,7 +150,6 @@ namespace PhishingFinder_v2
                 {
                     Email = email,
                     PhoneNumber = phone,
-                    RefreshToken = refreshToken
                 };
 
                 UserConfiguration.Save();

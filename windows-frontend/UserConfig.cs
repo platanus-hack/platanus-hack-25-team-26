@@ -10,7 +10,6 @@ namespace PhishingFinder_v2
     {
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
-        public string RefreshToken { get; set; } = string.Empty;
 
         private static readonly string ConfigDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
