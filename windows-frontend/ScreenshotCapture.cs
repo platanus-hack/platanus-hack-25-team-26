@@ -44,6 +44,7 @@ namespace PhishingFinder_v2
 
         private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
         private const int SW_RESTORE = 9;
+        private const int SW_MINIMIZE = 6;
 
         [DllImport("gdi32.dll")]
         private static extern bool BitBlt(IntPtr hObject, int nXDest, int nYDest, int nWidth, int nHeight, IntPtr hObjectSource, int nXSrc, int nYSrc, int dwRop);
@@ -82,6 +83,7 @@ namespace PhishingFinder_v2
             if (hWnd == IntPtr.Zero || !IsWindow(hWnd))
                 return false;
 
+            bool wasMinimized = false;
             try
             {
                 // Get the top-level parent window (important for browsers with child windows)
@@ -90,7 +92,7 @@ namespace PhishingFinder_v2
                     hWnd = topLevelWindow;
 
                 // Check if window is minimized and restore it temporarily if needed
-                bool wasMinimized = IsIconic(hWnd);
+                wasMinimized = IsIconic(hWnd);
                 if (wasMinimized)
                 {
                     ShowWindow(hWnd, SW_RESTORE);
@@ -262,12 +264,24 @@ namespace PhishingFinder_v2
             }
             finally
             {
-                // Note: We don't restore minimized state as the window should remain as user left it
-                // The brief restore was just for capturing
+                // Restore minimized state if window was originally minimized
+                if (wasMinimized && hWnd != IntPtr.Zero)
+                {
+                    try
+                    {
+                        ShowWindow(hWnd, SW_MINIMIZE);
+                    }
+                    catch
+                    {
+                        // Best effort - ignore if we can't minimize it back
+                    }
+                }
             }
 
             return false;
         }
+
+        private static readonly Random random = new Random();
 
         private static bool IsBitmapBlack(Bitmap bitmap)
         {
@@ -275,8 +289,6 @@ namespace PhishingFinder_v2
             // This is a quick check - if all sampled pixels are black, likely the whole image is black
             int sampleCount = Math.Min(100, bitmap.Width * bitmap.Height);
             int blackPixels = 0;
-            
-            Random random = new Random();
             for (int i = 0; i < sampleCount; i++)
             {
                 int x = random.Next(bitmap.Width);

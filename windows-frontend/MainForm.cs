@@ -9,6 +9,18 @@ namespace PhishingFinder_v2
 {
     public partial class MainForm : Form
     {
+        // Load configuration from AppSettings
+        private readonly AppSettings _settings = AppSettings.Instance;
+
+        // Use configuration values from AppSettings
+        private int SCREENSHOT_INTERVAL_MS => _settings.ScreenshotIntervalMs;
+        private int MOUSE_CHECK_INTERVAL_MS => _settings.MouseCheckIntervalMs;
+        private int CURSOR_FOLLOW_INTERVAL_MS => _settings.CursorFollowIntervalMs;
+        private int MIN_THREAT_SCORE => _settings.MinThreatScore;
+        private int DANGER_THREAT_SCORE => _settings.DangerThreatScore;
+        private double DIFFERENCE_THRESHOLD => _settings.FrameDifferenceThreshold;
+        private int MIN_API_CALL_INTERVAL_MS => _settings.MinApiCallIntervalMs;
+
         private DialogForm? dialogForm;
         private Timer? mouseTimer;
         private Timer? screenshotTimer;
@@ -18,7 +30,7 @@ namespace PhishingFinder_v2
         private ContextMenuStrip? contextMenu;
         private UserConfig? userConfig;
         private Bitmap? lastScreenshot;
-        private const double DIFFERENCE_THRESHOLD = 0.05; // 5% difference threshold (reduced sensitivity to avoid false positives from mouse/cursor changes)
+        private DateTime lastApiCallTime = DateTime.MinValue; // Track last API call time for rate limiting
 
         public MainForm()
         {
@@ -85,14 +97,14 @@ namespace PhishingFinder_v2
 
             // Set up timer to check if we're over allowed apps
             mouseTimer = new Timer();
-            mouseTimer.Interval = 1000; // Check every second
+            mouseTimer.Interval = MOUSE_CHECK_INTERVAL_MS;
             mouseTimer.Tick += MouseTimer_Tick;
             mouseTimer.Start();
-            Console.WriteLine("[Dialog] MouseTimer iniciado (intervalo: 1000ms)");
+            Console.WriteLine($"[Dialog] MouseTimer iniciado (intervalo: {MOUSE_CHECK_INTERVAL_MS}ms)");
 
             // Set up timer to follow cursor when dialog is visible
             cursorFollowTimer = new Timer();
-            cursorFollowTimer.Interval = 50; // Update every 50ms for smooth following
+            cursorFollowTimer.Interval = CURSOR_FOLLOW_INTERVAL_MS;
             cursorFollowTimer.Tick += CursorFollowTimer_Tick;
             Console.WriteLine("[Dialog] CursorFollowTimer configurado");
         }
@@ -123,9 +135,9 @@ namespace PhishingFinder_v2
         {
             Console.WriteLine("[Screenshot] Configurando ScreenshotTimer...");
             screenshotTimer = new Timer();
-            screenshotTimer.Interval = 1000; // 5 seconds
+            screenshotTimer.Interval = SCREENSHOT_INTERVAL_MS;
             screenshotTimer.Tick += ScreenshotTimer_Tick;
-            Console.WriteLine("[Screenshot] ScreenshotTimer configurado (intervalo: 5000ms)");
+            Console.WriteLine($"[Screenshot] ScreenshotTimer configurado (intervalo: {SCREENSHOT_INTERVAL_MS}ms)");
             Console.WriteLine("[Screenshot] Timer se iniciará cuando el mouse esté sobre un navegador");
         }
 
@@ -198,9 +210,11 @@ namespace PhishingFinder_v2
                             }
                             
                             // Update last screenshot reference (always update, even if skipping)
+                            // Create a copy before disposing the current one
+                            Bitmap? newLastScreenshot = new Bitmap(currentScreenshot);
                             lastScreenshot?.Dispose();
-                            lastScreenshot = new Bitmap(currentScreenshot);
-                            
+                            lastScreenshot = newLastScreenshot;
+
                             // Dispose currentScreenshot to release file lock before processing/deleting
                             currentScreenshot?.Dispose();
                             currentScreenshot = null;
@@ -208,10 +222,36 @@ namespace PhishingFinder_v2
                             // Only process if frame is different enough
                             if (shouldProcess)
                             {
-                                Console.WriteLine("[Screenshot] Enviando screenshot a la API...");
-                                
-                                // Start timing the API call
-                                Stopwatch stopwatch = Stopwatch.StartNew();
+                                // Check rate limiting
+                                var timeSinceLastCall = DateTime.Now - lastApiCallTime;
+                                if (timeSinceLastCall.TotalMilliseconds < MIN_API_CALL_INTERVAL_MS)
+                                {
+                                    double secondsToWait = (MIN_API_CALL_INTERVAL_MS - timeSinceLastCall.TotalMilliseconds) / 1000.0;
+                                    Console.WriteLine($"[Screenshot] Rate limited - skipping API call (last call {timeSinceLastCall.TotalSeconds:F1}s ago, need to wait {secondsToWait:F1}s more)");
+
+                                    // Delete the screenshot file since we're not processing it
+                                    try
+                                    {
+                                        if (File.Exists(filePath))
+                                        {
+                                            File.Delete(filePath);
+                                            Console.WriteLine($"[Screenshot] Rate-limited screenshot deleted: {Path.GetFileName(filePath)}");
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[Screenshot] Warning: Failed to delete rate-limited screenshot: {ex.Message}");
+                                    }
+                                }
+                                else
+                                {
+                                    Console.WriteLine("[Screenshot] Enviando screenshot a la API...");
+
+                                    // Update last API call time
+                                    lastApiCallTime = DateTime.Now;
+
+                                    // Start timing the API call
+                                    Stopwatch stopwatch = Stopwatch.StartNew();
                                 
                                 // Send screenshot to API (silently, no dialog update)
                                 PhishingResponse? response = await PhishingApiClient.EvaluateScreenshotAsync(filePath);
@@ -231,7 +271,7 @@ namespace PhishingFinder_v2
                                 }
 
                                 // Only show dialog if threat level is Warning (4-6) or Alert (7-10)
-                                if (response != null && response.Scoring >= 4)
+                                if (response != null && response.Scoring >= MIN_THREAT_SCORE)
                                 {
                                     Console.WriteLine($"[Screenshot] ⚠ ALERTA DETECTADA - Nivel: {response.Scoring}");
 
@@ -245,7 +285,7 @@ namespace PhishingFinder_v2
                                     ShowThreatDialog();
 
                                     // If scoring is 7 or higher (DANGER level), send email and WhatsApp alerts immediately
-                                    if (response.Scoring >= 7 && userConfig != null && !string.IsNullOrWhiteSpace(userConfig.RefreshToken))
+                                    if (response.Scoring >= DANGER_THREAT_SCORE && userConfig != null && !string.IsNullOrWhiteSpace(userConfig.RefreshToken))
                                     {
                                         Console.WriteLine("[Screenshot] 🚨 PELIGRO - Enviando alertas por email y WhatsApp...");
                                         _ = SendEmailAlertAsync(userConfig.RefreshToken, response.Scoring, response.Reason, response.Type);
@@ -256,6 +296,21 @@ namespace PhishingFinder_v2
                                 {
                                     Console.WriteLine($"[Screenshot] ✓ Seguro - Scoring: {response.Scoring} (< 4)");
                                 }
+
+                                    // Delete the processed screenshot file to save disk space
+                                    try
+                                    {
+                                        if (File.Exists(filePath))
+                                        {
+                                            File.Delete(filePath);
+                                            Console.WriteLine($"[Screenshot] Processed screenshot deleted: {Path.GetFileName(filePath)}");
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[Screenshot] Warning: Failed to delete processed screenshot: {ex.Message}");
+                                    }
+                                } // End of else block for rate limiting
                             }
                             else
                             {
@@ -321,41 +376,65 @@ namespace PhishingFinder_v2
                 // If dimensions differ, consider it 100% different
                 return 1.0;
             }
-            
-            // Sample pixels to calculate difference (for performance)
-            // We'll sample a grid of pixels rather than checking every pixel
-            int sampleStep = Math.Max(1, Math.Min(previous.Width, previous.Height) / 50); // Sample ~50x50 grid
+
+            int sampleStep = Math.Max(1, Math.Min(previous.Width, previous.Height) / 50);
             long totalDifference = 0;
-            long maxDifference = 0;
             int sampleCount = 0;
-            
-            for (int y = 0; y < previous.Height; y += sampleStep)
+
+            // Lock bits for fast pixel access
+            var prevData = previous.LockBits(
+                new Rectangle(0, 0, previous.Width, previous.Height),
+                System.Drawing.Imaging.ImageLockMode.ReadOnly,
+                previous.PixelFormat);
+            var currData = current.LockBits(
+                new Rectangle(0, 0, current.Width, current.Height),
+                System.Drawing.Imaging.ImageLockMode.ReadOnly,
+                current.PixelFormat);
+
+            try
             {
-                for (int x = 0; x < previous.Width; x += sampleStep)
+                int bytesPerPixel = Image.GetPixelFormatSize(previous.PixelFormat) / 8;
+                int prevStride = prevData.Stride;
+                int currStride = currData.Stride;
+
+                unsafe
                 {
-                    Color prevColor = previous.GetPixel(x, y);
-                    Color currColor = current.GetPixel(x, y);
-                    
-                    // Calculate color difference (RGB)
-                    long diffR = Math.Abs(prevColor.R - currColor.R);
-                    long diffG = Math.Abs(prevColor.G - currColor.G);
-                    long diffB = Math.Abs(prevColor.B - currColor.B);
-                    
-                    long pixelDifference = diffR + diffG + diffB;
-                    totalDifference += pixelDifference;
-                    maxDifference = Math.Max(maxDifference, pixelDifference);
-                    sampleCount++;
+                    byte* prevPtr = (byte*)prevData.Scan0;
+                    byte* currPtr = (byte*)currData.Scan0;
+
+                    for (int y = 0; y < previous.Height; y += sampleStep)
+                    {
+                        for (int x = 0; x < previous.Width; x += sampleStep)
+                        {
+                            int prevIndex = y * prevStride + x * bytesPerPixel;
+                            int currIndex = y * currStride + x * bytesPerPixel;
+
+                            // Handle different pixel formats (BGR/BGRA)
+                            if (bytesPerPixel >= 3)
+                            {
+                                long diffB = Math.Abs(prevPtr[prevIndex] - currPtr[currIndex]);
+                                long diffG = Math.Abs(prevPtr[prevIndex + 1] - currPtr[currIndex + 1]);
+                                long diffR = Math.Abs(prevPtr[prevIndex + 2] - currPtr[currIndex + 2]);
+
+                                totalDifference += diffR + diffG + diffB;
+                                sampleCount++;
+                            }
+                        }
+                    }
                 }
             }
-            
+            finally
+            {
+                previous.UnlockBits(prevData);
+                current.UnlockBits(currData);
+            }
+
             if (sampleCount == 0)
                 return 0.0;
-            
+
             // Normalize: average difference per pixel / max possible difference (255*3 = 765)
             double averageDifference = (double)totalDifference / sampleCount;
-            double normalizedDifference = averageDifference / 765.0;
-            
-            return normalizedDifference;
+            return averageDifference / 765.0;
         }
 
         private void MouseTimer_Tick(object? sender, EventArgs e)
