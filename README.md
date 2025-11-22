@@ -2,7 +2,7 @@
 
 **Current project logo:** project-logo.png
 
-<img src="./project-logo.png" alt="Project Logo" width="200" />
+<img src="./logo.png" alt="Project Logo" width="200" />
 
 Submission Deadline: 23rd Nov, 9:00 AM, Chile time.
 
