@@ -9,7 +9,10 @@ namespace PhishingFinder_v2
     {
         private Label titleLabel = null!;
         private Label contentLabel = null!;
+        private Button closeButton = null!;
         private const int CornerRadius = 12;
+        private const int CloseButtonSize = 24;
+        private const int CloseButtonPadding = 8;
         private Font titleFont = null!;
         private Font contentFont = null!;
         private Color alertColor = Color.FromArgb(180, 180, 195); // Default border color - más brillante
@@ -21,6 +24,7 @@ namespace PhishingFinder_v2
         private bool isFadingOut = false;
         private const double fadeStep = 0.05;
         private const double targetOpacity = 0.97;
+        public event EventHandler? DialogClosed;
 
         public DialogForm()
         {
@@ -88,6 +92,27 @@ namespace PhishingFinder_v2
                 UseCompatibleTextRendering = false
             };
             
+            // Close button - modern X button in top-right corner
+            closeButton = new Button
+            {
+                Text = "×",
+                Font = new Font("Segoe UI", 18F, FontStyle.Regular, GraphicsUnit.Pixel),
+                ForeColor = Color.FromArgb(200, 200, 205),
+                BackColor = Color.Transparent,
+                FlatStyle = FlatStyle.Flat,
+                Size = new Size(CloseButtonSize, CloseButtonSize),
+                Location = new Point(this.Width - CloseButtonSize - CloseButtonPadding, CloseButtonPadding),
+                Cursor = Cursors.Hand,
+                TabStop = false,
+                UseVisualStyleBackColor = false
+            };
+            closeButton.FlatAppearance.BorderSize = 0;
+            closeButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 60, 65);
+            closeButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(80, 80, 85);
+            closeButton.Click += CloseButton_Click;
+            closeButton.MouseEnter += CloseButton_MouseEnter;
+            closeButton.MouseLeave += CloseButton_MouseLeave;
+            
             this.Controls.Add(titleLabel);
             this.Controls.Add(contentLabel);
             
@@ -95,8 +120,26 @@ namespace PhishingFinder_v2
             fadeTimer = new Timer();
             fadeTimer.Interval = 15; // ~60fps
             fadeTimer.Tick += FadeTimer_Tick;
+            this.Controls.Add(closeButton);
+            closeButton.BringToFront();
             
             this.ResumeLayout(false);
+        }
+        
+        private void CloseButton_Click(object? sender, EventArgs e)
+        {
+            this.Hide();
+            DialogClosed?.Invoke(this, EventArgs.Empty);
+        }
+        
+        private void CloseButton_MouseEnter(object? sender, EventArgs e)
+        {
+            closeButton.ForeColor = Color.FromArgb(255, 255, 255);
+        }
+        
+        private void CloseButton_MouseLeave(object? sender, EventArgs e)
+        {
+            closeButton.ForeColor = Color.FromArgb(200, 200, 205);
         }
 
         // Import Windows API for rounded corners
@@ -259,6 +302,11 @@ namespace PhishingFinder_v2
             if (contentLabel != null && !contentLabel.IsDisposed)
             {
                 contentLabel.Width = this.Width - 24; // Account for padding
+            }
+            // Update close button position when form resizes
+            if (closeButton != null && !closeButton.IsDisposed)
+            {
+                closeButton.Location = new Point(this.Width - CloseButtonSize - CloseButtonPadding, CloseButtonPadding);
             }
         }
 

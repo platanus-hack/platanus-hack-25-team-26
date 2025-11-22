@@ -9,7 +9,7 @@ namespace PhishingFinder_v2
         private DialogForm? dialogForm;
         private Timer? mouseTimer;
         private Timer? screenshotTimer;
-        private Timer? hideDialogTimer;
+        private Timer? cursorFollowTimer;
         private bool isProcessingScreenshot = false;
 
         public MainForm()
@@ -40,6 +40,7 @@ namespace PhishingFinder_v2
         {
             dialogForm = new DialogForm();
             dialogForm.Hide(); // Always keep hidden - only show on threats
+            dialogForm.DialogClosed += DialogForm_DialogClosed; // Handle dialog close event
             
             // Set up timer to check if we're over allowed apps
             mouseTimer = new Timer();
@@ -47,16 +48,16 @@ namespace PhishingFinder_v2
             mouseTimer.Tick += MouseTimer_Tick;
             mouseTimer.Start();
             
-            // Set up timer to auto-hide dialog after 5 seconds
-            hideDialogTimer = new Timer();
-            hideDialogTimer.Interval = 5000; // 5 seconds
-            hideDialogTimer.Tick += HideDialogTimer_Tick;
+            // Set up timer to follow cursor when dialog is visible
+            cursorFollowTimer = new Timer();
+            cursorFollowTimer.Interval = 50; // Update every 50ms for smooth following
+            cursorFollowTimer.Tick += CursorFollowTimer_Tick;
         }
 
         private void InitializeScreenshotTimer()
         {
             screenshotTimer = new Timer();
-            screenshotTimer.Interval = 20000; // 20 seconds
+            screenshotTimer.Interval = 5000; // 5 seconds
             screenshotTimer.Tick += ScreenshotTimer_Tick;
             // Timer will be started/stopped based on whether we're over an allowed app
         }
@@ -88,15 +89,14 @@ namespace PhishingFinder_v2
                         // Only show dialog if threat level is Warning (4-6) or Alert (7-10)
                         if (response != null && response.Scoring >= 4)
                         {
+                            // Stop screenshot timer while dialog is showing
+                            screenshotTimer?.Stop();
+                            
                             // Update dialog with threat information
                             dialogForm?.UpdatePhishingResult(response);
                             
                             // Show dialog and position it near mouse cursor
                             ShowThreatDialog();
-                            
-                            // Start timer to hide dialog after 5 seconds
-                            hideDialogTimer?.Stop();
-                            hideDialogTimer?.Start();
                         }
                     }
                 }
@@ -129,6 +129,53 @@ namespace PhishingFinder_v2
         }
         
         private void ShowThreatDialog()
+        {
+            if (dialogForm == null || dialogForm.IsDisposed)
+                return;
+            
+            // Update dialog position and show it
+            UpdateDialogPosition();
+            dialogForm.Show();
+            
+            // Start cursor following timer
+            cursorFollowTimer?.Start();
+        }
+        
+        private void DialogForm_DialogClosed(object? sender, EventArgs e)
+        {
+            // Dialog was closed by user - resume screenshot analysis
+            cursorFollowTimer?.Stop();
+            
+            // Resume screenshot timer if we're still over browser
+            if (WindowDetector.IsMouseOverBrowser())
+            {
+                // Restart screenshot timer to resume analysis
+                screenshotTimer?.Stop();
+                screenshotTimer?.Start();
+            }
+        }
+        
+        private void CursorFollowTimer_Tick(object? sender, EventArgs e)
+        {
+            // Update dialog position to follow cursor when visible
+            // Only update if dialog is visible and not being interacted with
+            if (dialogForm != null && !dialogForm.IsDisposed && dialogForm.Visible)
+            {
+                // Check if mouse is over the dialog (to avoid moving it while user is trying to click)
+                var mousePos = Control.MousePosition;
+                var dialogScreenPos = dialogForm.PointToScreen(Point.Empty);
+                var dialogRect = new Rectangle(dialogScreenPos, dialogForm.Size);
+                
+                // Only update position if mouse is not over the dialog
+                // This prevents the dialog from moving away when user tries to click the close button
+                if (!dialogRect.Contains(mousePos))
+                {
+                    UpdateDialogPosition();
+                }
+            }
+        }
+        
+        private void UpdateDialogPosition()
         {
             if (dialogForm == null || dialogForm.IsDisposed)
                 return;
@@ -169,16 +216,8 @@ namespace PhishingFinder_v2
                 dialogX = screenBounds.Left + 5;
             }
             
-            // Update dialog position and show it
+            // Update dialog position
             dialogForm.Location = new Point(dialogX, dialogY);
-            dialogForm.Show();
-        }
-        
-        private void HideDialogTimer_Tick(object? sender, EventArgs e)
-        {
-            // Hide dialog after 5 seconds
-            hideDialogTimer?.Stop();
-            dialogForm?.Hide();
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
@@ -187,8 +226,8 @@ namespace PhishingFinder_v2
             mouseTimer?.Dispose();
             screenshotTimer?.Stop();
             screenshotTimer?.Dispose();
-            hideDialogTimer?.Stop();
-            hideDialogTimer?.Dispose();
+            cursorFollowTimer?.Stop();
+            cursorFollowTimer?.Dispose();
             dialogForm?.Close();
             base.OnFormClosed(e);
         }

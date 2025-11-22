@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\gsanm\\Documents\\Hackathon\\PhishingFinder-v2\\PhishingFinder-v2.csproj",
+      "projectUniqueName": "C:\\Users\\gsanm\\Documents\\Hackathon\\platanus-hack-25-team-26\\windows-frontend\\PhishingFinder-v2.csproj",
       "projectName": "PhishingFinder-v2",
-      "projectPath": "C:\\Users\\gsanm\\Documents\\Hackathon\\PhishingFinder-v2\\PhishingFinder-v2.csproj",
+      "projectPath": "C:\\Users\\gsanm\\Documents\\Hackathon\\platanus-hack-25-team-26\\windows-frontend\\PhishingFinder-v2.csproj",
       "packagesPath": "C:\\Users\\gsanm\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\gsanm\\Documents\\Hackathon\\PhishingFinder-v2\\obj\\",
+      "outputPath": "C:\\Users\\gsanm\\Documents\\Hackathon\\platanus-hack-25-team-26\\windows-frontend\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\gsanm\\AppData\\Roaming\\NuGet\\NuGet.Config"
