@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 using System.Threading.Tasks;
 
@@ -15,6 +17,8 @@ namespace PhishingFinder_v2
         private NotifyIcon? notifyIcon;
         private ContextMenuStrip? contextMenu;
         private UserConfig? userConfig;
+        private Bitmap? lastScreenshot;
+        private const double DIFFERENCE_THRESHOLD = 0.05; // 5% difference threshold (reduced sensitivity to avoid false positives from mouse/cursor changes)
 
         public MainForm()
         {
@@ -119,7 +123,7 @@ namespace PhishingFinder_v2
         {
             Console.WriteLine("[Screenshot] Configurando ScreenshotTimer...");
             screenshotTimer = new Timer();
-            screenshotTimer.Interval = 5000; // 5 seconds
+            screenshotTimer.Interval = 1000; // 5 seconds
             screenshotTimer.Tick += ScreenshotTimer_Tick;
             Console.WriteLine("[Screenshot] ScreenshotTimer configurado (intervalo: 5000ms)");
             Console.WriteLine("[Screenshot] Timer se iniciará cuando el mouse esté sobre un navegador");
@@ -136,6 +140,10 @@ namespace PhishingFinder_v2
                 return;
             }
 
+            // Don't process screenshots if dialog is currently visible
+            if (dialogForm != null && !dialogForm.IsDisposed && dialogForm.Visible)
+                return;
+
             // Get the browser window handle
             IntPtr browserHandle = WindowDetector.GetBrowserWindowHandle();
             Console.WriteLine($"[Screenshot] Browser Handle: {browserHandle}");
@@ -144,7 +152,9 @@ namespace PhishingFinder_v2
             {
                 isProcessingScreenshot = true;
                 Console.WriteLine("[Screenshot] Iniciando captura de screenshot...");
-
+                
+                // Stop the timer to prevent queuing multiple analyses while processing
+                screenshotTimer?.Stop();
                 try
                 {
                     // Generate filename and capture screenshot
@@ -156,45 +166,120 @@ namespace PhishingFinder_v2
 
                     if (captured)
                     {
-                        Console.WriteLine("[Screenshot] Enviando screenshot a la API...");
-                        // Send screenshot to API (silently, no dialog update)
-                        PhishingResponse? response = await PhishingApiClient.EvaluateScreenshotAsync(filePath);
-
-                        if (response == null)
+                        // Load the captured screenshot for comparison
+                        Bitmap? currentScreenshot = null;
+                        bool shouldProcess = true;
+                        
+                        try
                         {
-                            Console.WriteLine("[Screenshot] ✗ API retornó null");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"[Screenshot] ✓ API Response - Scoring: {response.Scoring}, Type: {response.Type}");
-                            Console.WriteLine($"[Screenshot] Reason: {response.Reason}");
-                        }
-
-                        // Only show dialog if threat level is Warning (4-6) or Alert (7-10)
-                        if (response != null && response.Scoring >= 4)
-                        {
-                            Console.WriteLine($"[Screenshot] ⚠ ALERTA DETECTADA - Nivel: {response.Scoring}");
-
-                            // Stop screenshot timer while dialog is showing
-                            screenshotTimer?.Stop();
-
-                            // Update dialog with threat information
-                            dialogForm?.UpdatePhishingResult(response);
-
-                            // Show dialog and position it near mouse cursor
-                            ShowThreatDialog();
-
-                            // If scoring is 7 or higher (DANGER level), send email and WhatsApp alerts immediately
-                            if (response.Scoring >= 7 && userConfig != null && !string.IsNullOrWhiteSpace(userConfig.RefreshToken))
+                            currentScreenshot = new Bitmap(filePath);
+                            
+                            // Compare with last screenshot if available
+                            if (lastScreenshot != null)
                             {
-                                Console.WriteLine("[Screenshot] 🚨 PELIGRO - Enviando alertas por email y WhatsApp...");
-                                _ = SendEmailAlertAsync(userConfig.RefreshToken, response.Scoring, response.Reason, response.Type);
-                                _ = SendWhatsAppAlertAsync(userConfig.PhoneNumber, response.Reason);
+                                double difference = CalculateFrameDifference(lastScreenshot, currentScreenshot);
+                                
+                                if (difference < DIFFERENCE_THRESHOLD)
+                                {
+                                    // Frame is basically the same, skip processing
+                                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Frame skipped - difference too small ({difference:P2} < {DIFFERENCE_THRESHOLD:P2})");
+                                    shouldProcess = false;
+                                }
+                                else
+                                {
+                                    // Frame is different enough, proceed with analysis
+                                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Frame different enough - proceeding with analysis (difference: {difference:P2})");
+                                }
+                            }
+                            else
+                            {
+                                // First screenshot, no previous to compare
+                                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] First frame captured - proceeding with analysis");
+                            }
+                            
+                            // Update last screenshot reference (always update, even if skipping)
+                            lastScreenshot?.Dispose();
+                            lastScreenshot = new Bitmap(currentScreenshot);
+                            
+                            // Dispose currentScreenshot to release file lock before processing/deleting
+                            currentScreenshot?.Dispose();
+                            currentScreenshot = null;
+                            
+                            // Only process if frame is different enough
+                            if (shouldProcess)
+                            {
+                                Console.WriteLine("[Screenshot] Enviando screenshot a la API...");
+                                
+                                // Start timing the API call
+                                Stopwatch stopwatch = Stopwatch.StartNew();
+                                
+                                // Send screenshot to API (silently, no dialog update)
+                                PhishingResponse? response = await PhishingApiClient.EvaluateScreenshotAsync(filePath);
+                                
+                                // Stop timing and log the elapsed time
+                                stopwatch.Stop();
+                                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Photo sent to API and response received in {stopwatch.ElapsedMilliseconds}ms ({stopwatch.Elapsed.TotalSeconds:F3}s)");
+
+                                if (response == null)
+                                {
+                                    Console.WriteLine("[Screenshot] ✗ API retornó null");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"[Screenshot] ✓ API Response - Scoring: {response.Scoring}, Type: {response.Type}");
+                                    Console.WriteLine($"[Screenshot] Reason: {response.Reason}");
+                                }
+
+                                // Only show dialog if threat level is Warning (4-6) or Alert (7-10)
+                                if (response != null && response.Scoring >= 4)
+                                {
+                                    Console.WriteLine($"[Screenshot] ⚠ ALERTA DETECTADA - Nivel: {response.Scoring}");
+
+                                    // Stop screenshot timer while dialog is showing
+                                    screenshotTimer?.Stop();
+
+                                    // Update dialog with threat information
+                                    dialogForm?.UpdatePhishingResult(response);
+
+                                    // Show dialog and position it near mouse cursor
+                                    ShowThreatDialog();
+
+                                    // If scoring is 7 or higher (DANGER level), send email and WhatsApp alerts immediately
+                                    if (response.Scoring >= 7 && userConfig != null && !string.IsNullOrWhiteSpace(userConfig.RefreshToken))
+                                    {
+                                        Console.WriteLine("[Screenshot] 🚨 PELIGRO - Enviando alertas por email y WhatsApp...");
+                                        _ = SendEmailAlertAsync(userConfig.RefreshToken, response.Scoring, response.Reason, response.Type);
+                                        _ = SendWhatsAppAlertAsync(userConfig.PhoneNumber, response.Reason);
+                                    }
+                                }
+                                else if (response != null)
+                                {
+                                    Console.WriteLine($"[Screenshot] ✓ Seguro - Scoring: {response.Scoring} (< 4)");
+                                }
+                            }
+                            else
+                            {
+                                // Frame is being skipped - delete the file to save disk space
+                                // File lock should be released since we disposed the bitmap above
+                                try
+                                {
+                                    if (File.Exists(filePath))
+                                    {
+                                        File.Delete(filePath);
+                                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Skipped frame file deleted: {Path.GetFileName(filePath)}");
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    // Log but don't fail if file deletion fails
+                                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Warning: Failed to delete skipped frame file: {ex.Message}");
+                                }
                             }
                         }
-                        else if (response != null)
+                        finally
                         {
-                            Console.WriteLine($"[Screenshot] ✓ Seguro - Scoring: {response.Scoring} (< 4)");
+                            // Ensure currentScreenshot is disposed if something went wrong
+                            currentScreenshot?.Dispose();
                         }
                     }
                     else
@@ -211,6 +296,15 @@ namespace PhishingFinder_v2
                 {
                     isProcessingScreenshot = false;
                     Console.WriteLine("[Screenshot] ◄ Procesamiento finalizado");
+                    
+                    // Restart the timer after processing completes (unless dialog is visible or not over browser)
+                    if (dialogForm == null || dialogForm.IsDisposed || !dialogForm.Visible)
+                    {
+                        if (WindowDetector.IsMouseOverBrowser())
+                        {
+                            screenshotTimer?.Start();
+                        }
+                    }
                 }
             }
             else
@@ -218,9 +312,62 @@ namespace PhishingFinder_v2
                 Console.WriteLine("[Screenshot] ✗ No se encontró ventana de navegador");
             }
         }
+        
+        private double CalculateFrameDifference(Bitmap previous, Bitmap current)
+        {
+            // Ensure both bitmaps have the same dimensions
+            if (previous.Width != current.Width || previous.Height != current.Height)
+            {
+                // If dimensions differ, consider it 100% different
+                return 1.0;
+            }
+            
+            // Sample pixels to calculate difference (for performance)
+            // We'll sample a grid of pixels rather than checking every pixel
+            int sampleStep = Math.Max(1, Math.Min(previous.Width, previous.Height) / 50); // Sample ~50x50 grid
+            long totalDifference = 0;
+            long maxDifference = 0;
+            int sampleCount = 0;
+            
+            for (int y = 0; y < previous.Height; y += sampleStep)
+            {
+                for (int x = 0; x < previous.Width; x += sampleStep)
+                {
+                    Color prevColor = previous.GetPixel(x, y);
+                    Color currColor = current.GetPixel(x, y);
+                    
+                    // Calculate color difference (RGB)
+                    long diffR = Math.Abs(prevColor.R - currColor.R);
+                    long diffG = Math.Abs(prevColor.G - currColor.G);
+                    long diffB = Math.Abs(prevColor.B - currColor.B);
+                    
+                    long pixelDifference = diffR + diffG + diffB;
+                    totalDifference += pixelDifference;
+                    maxDifference = Math.Max(maxDifference, pixelDifference);
+                    sampleCount++;
+                }
+            }
+            
+            if (sampleCount == 0)
+                return 0.0;
+            
+            // Normalize: average difference per pixel / max possible difference (255*3 = 765)
+            double averageDifference = (double)totalDifference / sampleCount;
+            double normalizedDifference = averageDifference / 765.0;
+            
+            return normalizedDifference;
+        }
 
         private void MouseTimer_Tick(object? sender, EventArgs e)
         {
+            // Don't start screenshot timer if dialog is currently visible
+            if (dialogForm != null && !dialogForm.IsDisposed && dialogForm.Visible)
+            {
+                // Ensure screenshot timer is stopped while dialog is visible
+                screenshotTimer?.Stop();
+                return;
+            }
+
             // Check if mouse is over an allowed app (browser)
             bool isOverBrowser = WindowDetector.IsMouseOverBrowser();
 
@@ -395,7 +542,10 @@ namespace PhishingFinder_v2
             // Clean up system tray icon
             notifyIcon?.Dispose();
             contextMenu?.Dispose();
-
+            
+            // Clean up last screenshot
+            lastScreenshot?.Dispose();
+            
             base.OnFormClosed(e);
         }
     }

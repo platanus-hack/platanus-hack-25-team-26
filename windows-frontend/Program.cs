@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace PhishingFinder_v2
@@ -7,12 +8,21 @@ namespace PhishingFinder_v2
     {
         private static MainForm? mainForm;
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AllocConsole();
+
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main()
         {
+            // Allocate a console window so Console.WriteLine works
+            AllocConsole();
+            Console.WriteLine("Phishing Finder - Console logging enabled");
+            Console.WriteLine("==========================================");
+
             // Set up application-wide exception handling
             Application.ThreadException += Application_ThreadException;
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
