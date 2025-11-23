@@ -101,3 +101,4 @@ Windows Forms app that monitors browser windows, takes screenshots, and detects 
 
 *For detailed code examples and implementation guides, see `IMPROVEMENTS_ACTION_PLAN.md`*
 
+

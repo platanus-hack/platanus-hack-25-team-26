@@ -20,7 +20,7 @@ namespace PhishingFinder_v2
         {
             // Allocate a console window so Console.WriteLine works
             AllocConsole();
-            Console.WriteLine("Phishing Finder - Console logging enabled");
+            Console.WriteLine("K0ra - Console logging enabled");
             Console.WriteLine("==========================================");
 
             // Set up application-wide exception handling
@@ -42,7 +42,7 @@ namespace PhishingFinder_v2
                     // If user cancels setup, exit application
                     if (result != DialogResult.OK)
                     {
-                        MessageBox.Show("La configuración es requerida para usar Phishing Finder.",
+                        MessageBox.Show("La configuración es requerida para usar K0ra.",
                             "Configuración Cancelada", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }

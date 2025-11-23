@@ -22,6 +22,7 @@ namespace PhishingFinder_v2
         private int MIN_API_CALL_INTERVAL_MS => _settings.MinApiCallIntervalMs;
 
         private DialogForm? dialogForm;
+        private AlwaysOnTopBlockingDialog? blockingDialog;
         private Timer? mouseTimer;
         private Timer? screenshotTimer;
         private Timer? cursorFollowTimer;
@@ -31,6 +32,10 @@ namespace PhishingFinder_v2
         private UserConfig? userConfig;
         private Bitmap? lastScreenshot;
         private DateTime lastApiCallTime = DateTime.MinValue; // Track last API call time for rate limiting
+
+        // Dialog timer management
+        private DateTime lastDialogShownTime = DateTime.MinValue;
+        private const int DIALOG_COOLDOWN_MS = 60000; // 1 minute cooldown between dialogs
 
         public MainForm()
         {
@@ -76,7 +81,7 @@ namespace PhishingFinder_v2
             this.SuspendLayout();
             
             // Form properties - hide the main window
-            this.Text = "Phishing Finder";
+            this.Text = "K0ra";
             this.Size = new Size(1, 1);
             this.StartPosition = FormStartPosition.Manual;
             this.Location = new Point(-2000, -2000); // Move off-screen
@@ -84,6 +89,7 @@ namespace PhishingFinder_v2
             this.ShowInTaskbar = false;
             this.FormBorderStyle = FormBorderStyle.None;
             this.Opacity = 0;
+            this.Icon = LoadApplicationIcon(); // Set application icon
             
             this.ResumeLayout(false);
         }
@@ -91,9 +97,15 @@ namespace PhishingFinder_v2
         private void InitializeDialog()
         {
             Console.WriteLine("[Dialog] Inicializando diálogo...");
+
+            // Initialize both dialog types
             dialogForm = new DialogForm();
             dialogForm.Hide(); // Always keep hidden - only show on threats
             dialogForm.DialogClosed += DialogForm_DialogClosed; // Handle dialog close event
+
+            blockingDialog = new AlwaysOnTopBlockingDialog();
+            blockingDialog.Hide(); // Always keep hidden - only show on threats
+            blockingDialog.DialogClosed += BlockingDialog_DialogClosed; // Handle dialog close event
 
             // Set up timer to check if we're over allowed apps
             mouseTimer = new Timer();
@@ -102,27 +114,112 @@ namespace PhishingFinder_v2
             mouseTimer.Start();
             Console.WriteLine($"[Dialog] MouseTimer iniciado (intervalo: {MOUSE_CHECK_INTERVAL_MS}ms)");
 
-            // Set up timer to follow cursor when dialog is visible
+            // Set up timer to follow cursor when dialog is visible (only for non-blocking dialog if NOT centered)
+            // Since we're now centering the non-blocking dialog, we don't need cursor following
             cursorFollowTimer = new Timer();
             cursorFollowTimer.Interval = CURSOR_FOLLOW_INTERVAL_MS;
             cursorFollowTimer.Tick += CursorFollowTimer_Tick;
-            Console.WriteLine("[Dialog] CursorFollowTimer configurado");
+            Console.WriteLine("[Dialog] CursorFollowTimer configurado (disabled for centered dialogs)");
         }
 
         private void InitializeSystemTray()
         {
             // Create context menu
             contextMenu = new ContextMenuStrip();
+
+            // Add configuration menu item
+            ToolStripMenuItem configMenuItem = new ToolStripMenuItem("Configuración");
+            configMenuItem.Click += ConfigMenuItem_Click;
+            contextMenu.Items.Add(configMenuItem);
+
+            // Add separator
+            contextMenu.Items.Add(new ToolStripSeparator());
+
+            // Add close menu item
             ToolStripMenuItem closeMenuItem = new ToolStripMenuItem("Close");
             closeMenuItem.Click += CloseMenuItem_Click;
             contextMenu.Items.Add(closeMenuItem);
 
             // Create notify icon
             notifyIcon = new NotifyIcon();
-            notifyIcon.Icon = SystemIcons.Application; // Use default application icon
-            notifyIcon.Text = "Phishing Finder";
+            notifyIcon.Icon = LoadApplicationIcon(); // Use application logo
+            notifyIcon.Text = "K0ra";
             notifyIcon.ContextMenuStrip = contextMenu;
             notifyIcon.Visible = true;
+        }
+
+        private static Icon? _cachedIcon = null;
+        private static readonly object _iconLock = new object();
+
+        private static Icon LoadApplicationIcon()
+        {
+            // Return cached icon if available
+            if (_cachedIcon != null)
+                return _cachedIcon;
+
+            lock (_iconLock)
+            {
+                // Double-check after acquiring lock
+                if (_cachedIcon != null)
+                    return _cachedIcon;
+
+                try
+                {
+                    // Try to load from base directory (where exe is located)
+                    string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logo.png");
+                    if (!File.Exists(iconPath))
+                    {
+                        // Try parent directory
+                        iconPath = Path.Combine(Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.Parent?.FullName ?? "", "logo.png");
+                    }
+                    if (!File.Exists(iconPath))
+                    {
+                        // Try current directory
+                        iconPath = Path.Combine(Directory.GetCurrentDirectory(), "logo.png");
+                    }
+                    if (!File.Exists(iconPath))
+                    {
+                        // Try windows-frontend directory
+                        iconPath = Path.Combine(Directory.GetCurrentDirectory(), "windows-frontend", "logo.png");
+                    }
+
+                    if (File.Exists(iconPath))
+                    {
+                        using (var bitmap = new Bitmap(iconPath))
+                        {
+                            _cachedIcon = Icon.FromHandle(bitmap.GetHicon());
+                            return _cachedIcon;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Icon] Error loading icon: {ex.Message}");
+                }
+
+                // Fallback to default icon
+                _cachedIcon = SystemIcons.Application;
+                return _cachedIcon;
+            }
+        }
+
+        private void ConfigMenuItem_Click(object? sender, EventArgs e)
+        {
+            // Open the configuration form
+            var setupForm = new SetupForm();
+
+            // Load existing configuration into the form
+            if (userConfig != null)
+            {
+                setupForm.LoadExistingConfiguration(userConfig);
+            }
+
+            if (setupForm.ShowDialog() == DialogResult.OK)
+            {
+                // Reload the configuration after saving
+                LoadUserConfiguration();
+                Console.WriteLine("[Config] Configuration updated from tray menu");
+            }
         }
 
         private void CloseMenuItem_Click(object? sender, EventArgs e)
@@ -152,8 +249,9 @@ namespace PhishingFinder_v2
                 return;
             }
 
-            // Don't process screenshots if dialog is currently visible
-            if (dialogForm != null && !dialogForm.IsDisposed && dialogForm.Visible)
+            // Don't process screenshots if any dialog is currently visible
+            if ((dialogForm != null && !dialogForm.IsDisposed && dialogForm.Visible) ||
+                (blockingDialog != null && !blockingDialog.IsDisposed && blockingDialog.Visible))
                 return;
 
             // Get the browser window handle
@@ -190,7 +288,7 @@ namespace PhishingFinder_v2
                             if (lastScreenshot != null)
                             {
                                 double difference = CalculateFrameDifference(lastScreenshot, currentScreenshot);
-                                
+
                                 if (difference < DIFFERENCE_THRESHOLD)
                                 {
                                     // Frame is basically the same, skip processing
@@ -208,26 +306,26 @@ namespace PhishingFinder_v2
                                 // First screenshot, no previous to compare
                                 Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] First frame captured - proceeding with analysis");
                             }
-                            
-                            // Update last screenshot reference (always update, even if skipping)
-                            // Create a copy before disposing the current one
-                            Bitmap? newLastScreenshot = new Bitmap(currentScreenshot);
-                            lastScreenshot?.Dispose();
-                            lastScreenshot = newLastScreenshot;
 
-                            // Dispose currentScreenshot to release file lock before processing/deleting
-                            currentScreenshot?.Dispose();
-                            currentScreenshot = null;
-                            
                             // Only process if frame is different enough
                             if (shouldProcess)
                             {
+                                // Update last screenshot reference ONLY when processing
+                                // Create a copy before disposing the old one
+                                Bitmap? newLastScreenshot = new Bitmap(currentScreenshot);
+                                lastScreenshot?.Dispose();
+                                lastScreenshot = newLastScreenshot;
+
                                 // Check rate limiting
                                 var timeSinceLastCall = DateTime.Now - lastApiCallTime;
                                 if (timeSinceLastCall.TotalMilliseconds < MIN_API_CALL_INTERVAL_MS)
                                 {
                                     double secondsToWait = (MIN_API_CALL_INTERVAL_MS - timeSinceLastCall.TotalMilliseconds) / 1000.0;
                                     Console.WriteLine($"[Screenshot] Rate limited - skipping API call (last call {timeSinceLastCall.TotalSeconds:F1}s ago, need to wait {secondsToWait:F1}s more)");
+
+                                    // Dispose currentScreenshot since we're not processing it
+                                    currentScreenshot?.Dispose();
+                                    currentScreenshot = null;
 
                                     // Delete the screenshot file since we're not processing it
                                     try
@@ -252,9 +350,13 @@ namespace PhishingFinder_v2
 
                                     // Start timing the API call
                                     Stopwatch stopwatch = Stopwatch.StartNew();
-                                
-                                // Send screenshot to API (silently, no dialog update)
-                                PhishingResponse? response = await PhishingApiClient.EvaluateScreenshotAsync(filePath);
+
+                                    // Dispose currentScreenshot to release file lock before API processing
+                                    currentScreenshot?.Dispose();
+                                    currentScreenshot = null;
+
+                                    // Send screenshot to API (silently, no dialog update)
+                                    PhishingResponse? response = await PhishingApiClient.EvaluateScreenshotAsync(filePath);
                                 
                                 // Stop timing and log the elapsed time
                                 stopwatch.Stop();
@@ -278,18 +380,31 @@ namespace PhishingFinder_v2
                                     // Stop screenshot timer while dialog is showing
                                     screenshotTimer?.Stop();
 
-                                    // Update dialog with threat information
+                                    // Update both dialogs with threat information
                                     dialogForm?.UpdatePhishingResult(response);
+                                    blockingDialog?.UpdatePhishingResult(response);
 
-                                    // Show dialog and position it near mouse cursor
-                                    ShowThreatDialog();
+                                    // Show the appropriate dialog based on user preference and threat level
+                                    ShowThreatDialog(response.Scoring);
 
-                                    // If scoring is 7 or higher (DANGER level), send email and WhatsApp alerts immediately
-                                    if (response.Scoring >= DANGER_THREAT_SCORE && userConfig != null && !string.IsNullOrWhiteSpace(userConfig.Email))
+                                    // If scoring is 7 or higher (DANGER level), send email and WhatsApp alerts based on parent control settings
+                                    if (response.Scoring >= DANGER_THREAT_SCORE && userConfig != null && userConfig.ParentControlEnabled)
                                     {
-                                        Console.WriteLine("[Screenshot] 🚨 PELIGRO - Enviando alertas por email y WhatsApp...");
-                                        _ = SendEmailAlertAsync(userConfig.Email, response.Scoring, response.Reason, response.Type);
-                                        _ = SendWhatsAppAlertAsync(userConfig.PhoneNumber, response.Reason);
+                                        Console.WriteLine("[Screenshot] 🚨 PELIGRO - Verificando configuración de alertas...");
+
+                                        // Send email alert if enabled and email is configured
+                                        if (userConfig.SendEmailAlerts && !string.IsNullOrWhiteSpace(userConfig.Email))
+                                        {
+                                            Console.WriteLine("[Screenshot] Enviando alerta por email...");
+                                            _ = SendEmailAlertAsync(userConfig.Email, response.Scoring, response.Reason, response.Type);
+                                        }
+
+                                        // Send WhatsApp alert if enabled and phone is configured
+                                        if (userConfig.SendPhoneAlerts && !string.IsNullOrWhiteSpace(userConfig.PhoneNumber))
+                                        {
+                                            Console.WriteLine("[Screenshot] Enviando alerta por WhatsApp...");
+                                            _ = SendWhatsAppAlertAsync(userConfig.PhoneNumber, response.Reason);
+                                        }
                                     }
                                 }
                                 else if (response != null)
@@ -315,7 +430,10 @@ namespace PhishingFinder_v2
                             else
                             {
                                 // Frame is being skipped - delete the file to save disk space
-                                // File lock should be released since we disposed the bitmap above
+                                // Dispose the current screenshot since we're not using it
+                                currentScreenshot?.Dispose();
+                                currentScreenshot = null;
+
                                 try
                                 {
                                     if (File.Exists(filePath))
@@ -352,8 +470,9 @@ namespace PhishingFinder_v2
                     isProcessingScreenshot = false;
                     Console.WriteLine("[Screenshot] ◄ Procesamiento finalizado");
                     
-                    // Restart the timer after processing completes (unless dialog is visible or not over browser)
-                    if (dialogForm == null || dialogForm.IsDisposed || !dialogForm.Visible)
+                    // Restart the timer after processing completes (unless any dialog is visible or not over browser)
+                    if ((dialogForm == null || dialogForm.IsDisposed || !dialogForm.Visible) &&
+                        (blockingDialog == null || blockingDialog.IsDisposed || !blockingDialog.Visible))
                     {
                         if (WindowDetector.IsMouseOverBrowser())
                         {
@@ -439,10 +558,11 @@ namespace PhishingFinder_v2
 
         private void MouseTimer_Tick(object? sender, EventArgs e)
         {
-            // Don't start screenshot timer if dialog is currently visible
-            if (dialogForm != null && !dialogForm.IsDisposed && dialogForm.Visible)
+            // Don't start screenshot timer if any dialog is currently visible
+            if ((dialogForm != null && !dialogForm.IsDisposed && dialogForm.Visible) ||
+                (blockingDialog != null && !blockingDialog.IsDisposed && blockingDialog.Visible))
             {
-                // Ensure screenshot timer is stopped while dialog is visible
+                // Ensure screenshot timer is stopped while any dialog is visible
                 screenshotTimer?.Stop();
                 return;
             }
@@ -451,10 +571,11 @@ namespace PhishingFinder_v2
             bool isOverBrowser = WindowDetector.IsMouseOverBrowser();
 
             // Start/stop screenshot timer based on whether we're over an allowed app
+            // BUT don't stop if we're currently processing a screenshot
             if (isOverBrowser)
             {
-                // Start screenshot timer if not already running
-                if (screenshotTimer != null && !screenshotTimer.Enabled)
+                // Start screenshot timer if not already running and not processing
+                if (screenshotTimer != null && !screenshotTimer.Enabled && !isProcessingScreenshot)
                 {
                     Console.WriteLine("[Mouse] ✓ Mouse sobre navegador - Iniciando ScreenshotTimer");
                     Console.WriteLine($"[Mouse] Timer configurado para ejecutarse cada {screenshotTimer.Interval}ms (cada {screenshotTimer.Interval / 1000.0}s)");
@@ -463,33 +584,90 @@ namespace PhishingFinder_v2
             }
             else
             {
-                // Stop screenshot timer when not over allowed app
-                if (screenshotTimer != null && screenshotTimer.Enabled)
+                // Stop screenshot timer when not over allowed app, but NOT if we're processing
+                if (!isProcessingScreenshot && screenshotTimer != null && screenshotTimer.Enabled)
                 {
                     Console.WriteLine("[Mouse] ✗ Mouse NO sobre navegador - Deteniendo ScreenshotTimer");
                     screenshotTimer.Stop();
                 }
+                // If we're processing, let the processing complete and handle timer in finally block
             }
         }
         
-        private void ShowThreatDialog()
+        private void ShowThreatDialog(double scoring)
         {
-            if (dialogForm == null || dialogForm.IsDisposed)
+            // For critical threats (score >= 7), use a shorter cooldown or bypass entirely
+            int cooldownMs = scoring >= DANGER_THREAT_SCORE ? 15000 : DIALOG_COOLDOWN_MS; // 15 seconds for critical threats, 60 seconds otherwise
+
+            // Check if cooldown period has passed
+            if (DateTime.Now - lastDialogShownTime < TimeSpan.FromMilliseconds(cooldownMs))
+            {
+                Console.WriteLine($"[Dialog] Skipping dialog - cooldown active (score: {scoring}). Time remaining: {(TimeSpan.FromMilliseconds(cooldownMs) - (DateTime.Now - lastDialogShownTime)).TotalSeconds:F1}s");
+
+                // Important: Resume screenshot timer even if dialog is not shown due to cooldown
+                if (WindowDetector.IsMouseOverBrowser())
+                {
+                    screenshotTimer?.Start();
+                }
                 return;
-            
-            // Update dialog position and show it
-            UpdateDialogPosition();
-            dialogForm.Show();
-            
-            // Start cursor following timer
-            cursorFollowTimer?.Start();
+            }
+
+            // Update last shown time
+            lastDialogShownTime = DateTime.Now;
+
+            // Determine which dialog type to show based on scoring and user configuration
+            DialogDisplayType dialogTypeToShow = DialogDisplayType.NonBlockingCentered; // Default
+
+            if (userConfig != null)
+            {
+                // Use the new method to get the appropriate dialog type based on scoring
+                dialogTypeToShow = userConfig.GetDialogTypeForScoring(scoring);
+                Console.WriteLine($"[Dialog] Scoring: {scoring}, Selected dialog type: {dialogTypeToShow}");
+            }
+
+            // Show the appropriate dialog based on the determined type
+            if (dialogTypeToShow == DialogDisplayType.AlwaysOnTopBlocking)
+            {
+                // Use blocking dialog
+                if (blockingDialog == null || blockingDialog.IsDisposed)
+                    return;
+
+                blockingDialog.Show();
+                Console.WriteLine("[Dialog] Showing AlwaysOnTopBlocking dialog");
+            }
+            else
+            {
+                // Use non-blocking centered dialog (default)
+                if (dialogForm == null || dialogForm.IsDisposed)
+                    return;
+
+                // Dialog will center itself in its Show() method
+                dialogForm.Show();
+                Console.WriteLine("[Dialog] Showing NonBlockingCentered dialog");
+
+                // Don't start cursor following for centered dialog
+                // cursorFollowTimer is disabled for centered dialogs
+            }
         }
         
         private void DialogForm_DialogClosed(object? sender, EventArgs e)
         {
             // Dialog was closed by user - resume screenshot analysis
             cursorFollowTimer?.Stop();
-            
+
+            // Resume screenshot timer if we're still over browser
+            if (WindowDetector.IsMouseOverBrowser())
+            {
+                // Restart screenshot timer to resume analysis
+                screenshotTimer?.Stop();
+                screenshotTimer?.Start();
+            }
+        }
+
+        private void BlockingDialog_DialogClosed(object? sender, EventArgs e)
+        {
+            // Blocking dialog was closed by user - resume screenshot analysis
+
             // Resume screenshot timer if we're still over browser
             if (WindowDetector.IsMouseOverBrowser())
             {
@@ -617,6 +795,7 @@ namespace PhishingFinder_v2
             cursorFollowTimer?.Stop();
             cursorFollowTimer?.Dispose();
             dialogForm?.Close();
+            blockingDialog?.Close();
 
             // Clean up system tray icon
             notifyIcon?.Dispose();

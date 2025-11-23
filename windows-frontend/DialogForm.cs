@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
 using System.Windows.Forms;
 
 namespace PhishingFinder_v2
@@ -60,6 +61,7 @@ namespace PhishingFinder_v2
             this.TopMost = true;
             this.ShowInTaskbar = false;
             this.Opacity = 0; // Start invisible for fade in animation
+            this.Icon = LoadApplicationIcon(); // Set application icon
             this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.DoubleBuffer | ControlStyles.ResizeRedraw, true);
             this.Padding = new Padding(12, 8, 12, 8);
             
@@ -438,8 +440,26 @@ namespace PhishingFinder_v2
 
         public new void Show()
         {
+            // Center the dialog on the screen
+            CenterOnScreen();
             base.Show();
             FadeIn();
+        }
+
+        /// <summary>
+        /// Centers the dialog on the current screen
+        /// </summary>
+        public void CenterOnScreen()
+        {
+            // Get the current screen (based on mouse position or primary screen)
+            var currentScreen = Screen.FromPoint(Control.MousePosition) ?? Screen.PrimaryScreen;
+            if (currentScreen != null)
+            {
+                var screenBounds = currentScreen.WorkingArea;
+                int x = screenBounds.X + (screenBounds.Width - this.Width) / 2;
+                int y = screenBounds.Y + (screenBounds.Height - this.Height) / 2;
+                this.Location = new Point(x, y);
+            }
         }
 
         public void HideWithFade()
@@ -456,6 +476,61 @@ namespace PhishingFinder_v2
                 fadeTimer?.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        private static Icon? _cachedIcon = null;
+        private static readonly object _iconLock = new object();
+
+        private static Icon LoadApplicationIcon()
+        {
+            // Return cached icon if available
+            if (_cachedIcon != null)
+                return _cachedIcon;
+
+            lock (_iconLock)
+            {
+                // Double-check after acquiring lock
+                if (_cachedIcon != null)
+                    return _cachedIcon;
+
+                try
+                {
+                    // Try to load from base directory (where exe is located)
+                    string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logo.png");
+                    if (!File.Exists(iconPath))
+                    {
+                        // Try parent directory
+                        iconPath = Path.Combine(Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.Parent?.FullName ?? "", "logo.png");
+                    }
+                    if (!File.Exists(iconPath))
+                    {
+                        // Try current directory
+                        iconPath = Path.Combine(Directory.GetCurrentDirectory(), "logo.png");
+                    }
+                    if (!File.Exists(iconPath))
+                    {
+                        // Try windows-frontend directory
+                        iconPath = Path.Combine(Directory.GetCurrentDirectory(), "windows-frontend", "logo.png");
+                    }
+
+                    if (File.Exists(iconPath))
+                    {
+                        using (var bitmap = new Bitmap(iconPath))
+                        {
+                            _cachedIcon = Icon.FromHandle(bitmap.GetHicon());
+                            return _cachedIcon;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Icon] Error loading icon: {ex.Message}");
+                }
+
+                // Fallback to default icon
+                _cachedIcon = SystemIcons.Application;
+                return _cachedIcon;
+            }
         }
     }
 }
