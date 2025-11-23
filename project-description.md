@@ -38,12 +38,6 @@ npm run dev
 npm run build
 ```
 
-## Seguridad
-
-⚠️ **Nunca hagas commit de `.env`** - Contiene tus credenciales de Apple Developer.
-
-Ver [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) para más detalles.
-
 ## Licencia
 
 MIT
