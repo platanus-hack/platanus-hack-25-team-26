@@ -1,4 +1,5 @@
 {
-  "project-name": "<FILL THIS>",
-  "project-description-spanish": "<FILL THIS>"
+  "project-name": "K0ra",
+  "project-description-spanish": "Kora es una aplicación que supervisa la actividad de los niños en el computador y detecta amenazas digitales como phishing, grooming o ingeniería social.",
+  "deploy-url": "https://k0ra.vercel.app/"
 }
