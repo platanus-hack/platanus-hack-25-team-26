@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Phishing AI Overlay</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Transparent overlay - only the panel will be visible when alert is active -->
+  <div id="alert-panel" class="alert-panel">
+    <div class="alert-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path class="alert-icon-path" d="M12 2L2 20h20L12 2z" fill="#ff9800"/>
+        <path d="M11 10h2v5h-2v-5z" fill="#fff"/>
+        <circle cx="12" cy="17" r="1" fill="#fff"/>
+      </svg>
+    </div>
+    <div class="alert-content">
+      <div class="alert-title" id="alert-title">Security Alert</div>
+      <div class="alert-reason" id="alert-reason">Possible phishing attempt</div>
+    </div>
+  </div>
+
+  <script>
+    console.log('[Overlay HTML] Inline script executed');
+    console.log('[Overlay HTML] window.api exists:', typeof window.api);
+  </script>
+  <script src="overlay.js"></script>
+  <script>
+    console.log('[Overlay HTML] After overlay.js loaded');
+  </script>
+</body>
+</html>

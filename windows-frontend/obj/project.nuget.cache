@@ -1,13 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "FKomaUB8Ckk=",
+  "dgSpecHash": "AZoWJEUEMxI=",
   "success": true,
-  "projectFilePath": "C:\\Users\\gsanm\\Documents\\Hackathon\\platanus-hack-25-team-26\\windows-frontend\\PhishingFinder-v2.csproj",
+  "projectFilePath": "D:\\Proyectos2025\\platanus-hack-25-team-26\\windows-frontend\\PhishingFinder-v2.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\gsanm\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.19\\microsoft.netcore.app.ref.8.0.19.nupkg.sha512",
-    "C:\\Users\\gsanm\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.19\\microsoft.windowsdesktop.app.ref.8.0.19.nupkg.sha512",
-    "C:\\Users\\gsanm\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.19\\microsoft.aspnetcore.app.ref.8.0.19.nupkg.sha512",
-    "C:\\Users\\gsanm\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.19\\microsoft.netcore.app.host.win-x64.8.0.19.nupkg.sha512"
+    "C:\\Users\\Diogo\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.18\\microsoft.net.illink.tasks.8.0.18.nupkg.sha512",
+    "C:\\Users\\Diogo\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.18\\microsoft.netcore.app.runtime.win-x64.8.0.18.nupkg.sha512",
+    "C:\\Users\\Diogo\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.18\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.18.nupkg.sha512",
+    "C:\\Users\\Diogo\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.18\\microsoft.aspnetcore.app.runtime.win-x64.8.0.18.nupkg.sha512"
   ],
   "logs": []
 }

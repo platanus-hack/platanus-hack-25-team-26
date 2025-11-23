@@ -1,0 +1,35 @@
+{
+  "name": "phishing-ai",
+  "version": "1.0.0",
+  "description": "Real-time phishing detection for macOS",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "ELECTRON_RUN_AS_NODE= electron .",
+    "dev": "ELECTRON_RUN_AS_NODE= electron . --no-sandbox",
+    "backend": "node test-backend.js",
+    "build": "dotenv -e .env -- electron-builder --mac",
+    "build:universal": "dotenv -e .env -- electron-builder --mac --universal",
+    "build:dir": "dotenv -e .env -- electron-builder --mac --dir"
+  },
+  "keywords": [
+    "electron",
+    "phishing",
+    "security",
+    "macOS"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "active-win": "^8.1.0",
+    "axios": "^1.6.0",
+    "express": "^4.21.2",
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {
+    "@electron/notarize": "^3.1.1",
+    "dotenv": "^17.2.3",
+    "dotenv-cli": "^11.0.0",
+    "electron": "^27.3.11",
+    "electron-builder": "^26.0.12"
+  }
+}

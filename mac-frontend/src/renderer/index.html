@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Phishing AI - Electron App</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🚀 Welcome to Phishing AI</h1>
+      <p class="subtitle">A Modern Electron Application</p>
+    </header>
+
+    <main>
+      <div class="card">
+        <h2>Getting Started</h2>
+        <p>This is a clean, modern Electron boilerplate application.</p>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">Platform:</span>
+            <span class="value" id="platform">Loading...</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Electron Version:</span>
+            <span class="value" id="electron-version">Loading...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Features</h2>
+        <ul class="features-list">
+          <li>✅ Modern Electron setup with security best practices</li>
+          <li>✅ Context isolation enabled</li>
+          <li>✅ Preload script for secure IPC</li>
+          <li>✅ Clean, maintainable code structure</li>
+          <li>✅ Responsive and modern UI design</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Next Steps</h2>
+        <p>Start building your application by modifying the files in the <code>src/</code> directory.</p>
+      </div>
+    </main>
+
+    <footer>
+      <p>Built with Electron ⚡</p>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
+

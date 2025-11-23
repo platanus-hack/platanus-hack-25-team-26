@@ -2,3 +2,21 @@ bin/Debug/
 obj/Debug/
 
 .vscode/
+
+# Build outputs
+bin/Release/
+obj/Release/
+
+# Publish output (single-file publish)
+publish/
+
+# Release artifacts - do NOT commit generated zips, installers or executables
+*.zip
+release-*.zip
+*.exe
+*.msi
+*.7z
+
+# Logs and temporary
+*.log
+

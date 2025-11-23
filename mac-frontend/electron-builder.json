@@ -1,0 +1,47 @@
+{
+  "appId": "com.phishingai.protection",
+  "productName": "Phishing AI Protection",
+  "copyright": "Copyright © 2024",
+  "directories": {
+    "output": "dist",
+    "buildResources": "assets"
+  },
+  "files": [
+    "src/**/*",
+    "package.json"
+  ],
+  "mac": {
+    "category": "public.app-category.utilities",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["x64", "arm64"]
+      }
+    ],
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "entitlements.mac.plist",
+    "entitlementsInherit": "entitlements.mac.inherit.plist",
+    "notarize": true
+  },
+  "dmg": {
+    "title": "${productName} ${version}",
+    "window": {
+      "width": 540,
+      "height": 380
+    },
+    "contents": [
+      {
+        "x": 144,
+        "y": 150
+      },
+      {
+        "x": 396,
+        "y": 150,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ]
+  },
+  "publish": null
+}

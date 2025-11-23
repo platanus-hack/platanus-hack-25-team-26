@@ -8,9 +8,11 @@ namespace PhishingFinder_v2
     {
         private static MainForm? mainForm;
 
+    #if DEBUG
         [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool AllocConsole();
+    #endif
 
         /// <summary>
         /// The main entry point for the application.
@@ -18,14 +20,16 @@ namespace PhishingFinder_v2
         [STAThread]
         static void Main()
         {
-            // Allocate a console window so Console.WriteLine works
+            // Allocate a console window only in Debug builds so Console.WriteLine works while developing
+#if DEBUG
             AllocConsole();
             Console.WriteLine("K0ra - Console logging enabled");
             Console.WriteLine("==========================================");
+#endif
 
             // Set up application-wide exception handling
             Application.ThreadException += Application_ThreadException;
-            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            Application.SetUnhxandledExceptionMode(UnhandledExceptionMode.CatchException);
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
             Application.EnableVisualStyles();
