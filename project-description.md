@@ -38,14 +38,6 @@ npm run dev
 npm run build
 ```
 
-Ver [BUILD.md](BUILD.md) para instrucciones detalladas.
-
-## Documentación para Desarrolladores
-
-- **[SETUP.md](SETUP.md)** - Configuración del entorno de desarrollo
-- **[BUILD.md](BUILD.md)** - Instrucciones de compilación
-- **[SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md)** - Guía de seguridad
-
 ## Seguridad
 
 ⚠️ **Nunca hagas commit de `.env`** - Contiene tus credenciales de Apple Developer.
