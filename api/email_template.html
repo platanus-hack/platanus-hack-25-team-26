@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Control Parental - Alerta de Seguridad</title>
+  <style>
+    :root {{ --brand-yellow: #fbbf24; --brand-deep: #b45309; --muted:#6b7280 }}
+    body {{ background:#fbfaf7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color:#0f172a; margin:0; padding:20px; }}
+    .card {{ max-width:720px; margin:20px auto; background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(15,23,42,0.08); overflow:hidden }}
+    .header {{ padding:28px 28px; background: linear-gradient(90deg, #FFEA05, #FFEA05); color:#072026; display:flex; align-items:center; gap:16px }}
+    .logo-wrap {{ width:60px; height:60px; flex-shrink:0; }}
+    .logo {{ width:100%; height:100%; object-fit:contain; display:block }}
+    .title {{ font-size:20px; margin:0 0 2px 0; color:#072026 }}
+    .subtitle {{ margin:0; opacity:0.95; font-size:14px; color:var(--muted) }}
+    .body {{ padding:24px 28px; line-height:1.55 }}
+    .badge {{ display:inline-block; padding:10px 16px; border-radius:999px; color:#fff; font-weight:700 }}
+    .details {{ background:#fffaf6; padding:16px; border-radius:8px; margin-top:14px; border:1px solid rgba(245,158,11,0.12) }}
+    .footer {{ background:#fff8ed; padding:18px 28px; font-size:13px; color:var(--muted) }}
+    .actions {{ margin-top:18px }}
+    .btn {{ display:inline-block; background:var(--brand-deep); color:#fff; padding:10px 14px; border-radius:8px; text-decoration:none }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo-wrap">
+        <img src="cid:logo" alt="Kora" class="logo">
+      </div>
+      <div>
+        <h1 class="title">Alerta de Ingeniería Social detectada</h1>
+        <p class="subtitle">Hemos detectado contenido con técnicas de manipulación que podría afectar a tu familia.</p>
+      </div>
+    </div>
+    <div class="body">
+      <p style="margin:0 0 12px 0; font-size:15px;"><strong>Resumen rápido:</strong></p>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <div class="badge" style="background:{risk_color}">{risk_level}</div>
+        <div style="color:#475569;margin-left:auto;font-size:13px">Tipo: {tipo}</div>
+      </div>
+
+      <div class="details">
+        <p style="margin:0 0 8px 0;"><strong>Motivo:</strong> {reason}</p>
+        <p style="margin:0;color:#475569;font-size:13px">Revisa la información y toma las acciones recomendadas para proteger a tu familia.</p>
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="https://my-parental-control.example.com">Abrir panel de control</a>
+      </div>
+
+      <h3 style="margin-top:18px;margin-bottom:8px;font-size:16px">¿Qué es Ingeniería Social?</h3>
+      <p style="margin:0 0 12px 0;color:#475569;font-size:14px">Son técnicas de manipulación psicológica que usan atacantes para engañar a las personas y obtener información, dinero o acceso a sistemas.</p>
+
+      <h3 style="margin-top:18px;margin-bottom:8px;font-size:16px">Recomendaciones para proteger a tu familia</h3>
+      <ul style="margin:0 0 0 18px;color:#475569">
+        <li>Conversa con tu hijo/a sobre mensajes que crean urgencia o miedo artificial.</li>
+        <li>Enséñale a desconfiar de ofertas "demasiado buenas para ser verdad" o premios inesperados.</li>
+        <li>Verifica siempre la identidad de quien solicita información personal o dinero.</li>
+        <li>Ninguna empresa legítima pide contraseñas, códigos de verificación o datos bancarios por mensaje.</li>
+        <li>Si algo genera presión para decidir "ahora mismo", es una señal de alerta.</li>
+      </ul>
+    </div>
+    <div class="footer">Este mensaje fue generado automáticamente por el servicio de Control Parental de Kora Security.</div>
+  </div>
+</body>
+</html>
