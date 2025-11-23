@@ -283,11 +283,7 @@ private static async Task<T?> RetryAsync<T>(
   "MouseCheckIntervalMs": 1000,
   "MinThreatScore": 4,
   "DangerThreatScore": 7,
-  "ApiEndpoints": {
-    "Evaluate": "https://pjemsvms4u.us-east-2.awsapprunner.com/evaluate",
-    "Alert": "https://pjemsvms4u.us-east-2.awsapprunner.com/send-alert-email",
-    "WhatsApp": "https://api-notmeta.damascuss.io/notmeta/kora/notify/"
-  },
+
   "ImageCompression": {
     "Enabled": true,
     "Quality": 75
