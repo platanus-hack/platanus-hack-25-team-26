@@ -12,13 +12,13 @@ Kora es una aplicación para macOS y Windows, que monitorea en tiempo real la ac
 
 ## Características
 
-🔍 **Monitoreo en tiempo real** - Analiza continuamente lo que aparece en pantalla
+**Monitoreo en tiempo real** - Analiza continuamente lo que aparece en pantalla
 
-🚨 **Alertas visuales** - Notificaciones instantáneas en el cursor cuando se detecta contenido sospechoso
+**Alertas visuales** - Notificaciones instantáneas en el cursor cuando se detecta contenido sospechoso
 
-📧 **Notificaciones a padres** - Alertas vía email o WhatsApp en casos de grooming u otras situaciones de alto riesgo
+**Notificaciones a padres** - Alertas vía email o WhatsApp en casos de grooming u otras situaciones de alto riesgo
 
-🤖 **Inteligencia artificial** - Detección automática de patrones de riesgo y contenido peligroso
+**Inteligencia artificial** - Detección automática de patrones de riesgo y contenido peligroso
 
 ## Inicio Rápido
 
